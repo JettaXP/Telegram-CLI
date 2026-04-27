@@ -50,7 +50,6 @@ struct Config {
     int api_id = 0;
     std::string api_hash;
     std::string phone_number;
-    std::string account_name = "default";
     std::string theme_name = "dark";
     std::string tdlib_data_dir;
     Theme theme;

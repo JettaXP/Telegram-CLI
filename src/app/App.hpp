@@ -27,8 +27,6 @@ private:
     void on_chat_selected(int64_t chat_id);
     void on_message_send(const std::string& text);
     void on_command(const std::string& cmd);
-    void update_composer_state(int64_t chat_id);
-    bool paste_clipboard_photo();
 
     // State & Config
     AppState state_;

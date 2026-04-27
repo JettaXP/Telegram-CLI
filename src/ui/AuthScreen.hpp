@@ -26,8 +26,6 @@ private:
 
     std::string input_text_;
     std::string password_text_;
-    std::string api_id_text_;
-    std::string api_hash_text_;
     std::string first_name_;
     std::string last_name_;
 

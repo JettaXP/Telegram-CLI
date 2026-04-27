@@ -7,7 +7,6 @@
 #include "../ui/ChatList.hpp"
 #include "../ui/ChatView.hpp"
 #include "../ui/InputBar.hpp"
-#include "../ui/CommandsPanel.hpp"
 #include "../ui/StarsPanel.hpp"
 #include "../ui/GiftsPanel.hpp"
 #include "../ui/InfoPanel.hpp"
@@ -15,9 +14,6 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
 #include <thread>
 #include <iostream>
 
@@ -57,40 +53,43 @@ void App::on_auth_ready() {
     }
     auth_ready_initialized_ = true;
     mode_ = UIMode::MAIN;
+
+    // Fetch user info
+    auth_->fetch_me();
+
+    // Load chats
+    messages_->load_chats(50);
+
+    {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        if (!state_.chats.empty()) {
+            state_.selected_chat_index = 0;
+            state_.selected_chat_id = state_.chats.front().id;
+        }
+    }
+
+    int64_t chat_id = 0;
+    {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        chat_id = state_.selected_chat_id;
+    }
+    if (chat_id != 0) {
+        on_chat_selected(chat_id);
+    }
+
+    // Fetch exteraGram profiles in background
     std::thread([this]() {
-        // Fetch account and data off the UI thread so the TTY stays responsive.
-        auth_->fetch_me();
-        messages_->load_chats(500);
+        ExteraGram::fetch_profiles(state_);
+    }).detach();
 
-        int64_t chat_id = 0;
-        {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            if (!state_.chats.empty()) {
-                state_.selected_chat_index = 0;
-                state_.selected_chat_id = state_.chats.front().id;
-            }
-            chat_id = state_.selected_chat_id;
-        }
-
-        if (chat_id != 0) {
-            on_chat_selected(chat_id);
-        }
-
-        std::thread([this]() {
-            ExteraGram::fetch_profiles(state_);
-        }).detach();
-
-        std::thread([this]() {
-            stars_->fetch_balance();
-            stars_->fetch_transactions();
-        }).detach();
-
-        screen_.Post(Event::Custom);
+    // Fetch Stars balance in background
+    std::thread([this]() {
+        stars_->fetch_balance();
+        stars_->fetch_transactions();
     }).detach();
 }
 
 void App::on_chat_selected(int64_t chat_id) {
-    update_composer_state(chat_id);
     // Load message history for selected chat
     std::thread([this, chat_id]() {
         {
@@ -110,66 +109,6 @@ void App::on_chat_selected(int64_t chat_id) {
         // Refresh UI
         screen_.Post(Event::Custom);
     }).detach();
-}
-
-void App::update_composer_state(int64_t chat_id) {
-    std::lock_guard<std::mutex> lock(state_.mtx);
-    state_.composer_enabled = true;
-    state_.composer_notice.clear();
-
-    for (const auto& chat : state_.chats) {
-        if (chat.id != chat_id) {
-            continue;
-        }
-
-        if (!chat.can_send_messages) {
-            state_.composer_enabled = false;
-            if (chat.is_channel) {
-                state_.composer_notice = "You can't write in this channel.";
-            } else {
-                state_.composer_notice = "You can't send messages here.";
-            }
-        }
-        break;
-    }
-}
-
-bool App::paste_clipboard_photo() {
-    if (state_.selected_chat_id == 0) {
-        return false;
-    }
-
-    auto tmp_dir = std::filesystem::temp_directory_path();
-    auto tmp_path = tmp_dir / "tgcli_clipboard_photo.png";
-    std::error_code ec;
-    std::filesystem::remove(tmp_path, ec);
-
-    std::string cmd = "kitty +kitten clipboard -g ";
-    cmd += "'" + tmp_path.string() + "'";
-    int rc = std::system(cmd.c_str());
-    if (rc != 0 || !std::filesystem::exists(tmp_path) || std::filesystem::file_size(tmp_path) == 0) {
-        std::filesystem::remove(tmp_path, ec);
-
-        for (const char* mime : {"image/png", "image/jpeg"}) {
-            cmd = "wl-paste --no-newline --type ";
-            cmd += mime;
-            cmd += " > ";
-            cmd += "'" + tmp_path.string() + "'";
-            rc = std::system(cmd.c_str());
-            if (rc == 0 && std::filesystem::exists(tmp_path) && std::filesystem::file_size(tmp_path) > 0) {
-                break;
-            }
-            std::filesystem::remove(tmp_path, ec);
-        }
-        if (!std::filesystem::exists(tmp_path) || std::filesystem::file_size(tmp_path) == 0) {
-            std::filesystem::remove(tmp_path, ec);
-            return false;
-        }
-    }
-
-    messages_->send_photo(state_.selected_chat_id, tmp_path.string());
-    std::filesystem::remove(tmp_path, ec);
-    return true;
 }
 
 void App::on_message_send(const std::string& text) {
@@ -205,35 +144,19 @@ void App::on_command(const std::string& cmd) {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_stars_panel = !state_.show_stars_panel;
         state_.show_gifts_panel = false;
-        state_.show_info_panel = false;
-        state_.show_commands_panel = false;
     } else if (cmd == "gifts") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_gifts_panel = !state_.show_gifts_panel;
         state_.show_stars_panel = false;
-        state_.show_info_panel = false;
-        state_.show_commands_panel = false;
     } else if (cmd == "info" || cmd == "i") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_info_panel = !state_.show_info_panel;
-        state_.show_stars_panel = false;
-        state_.show_gifts_panel = false;
-        state_.show_commands_panel = false;
-    } else if (cmd == "commands" || cmd == "settings" || cmd == "config") {
-        std::lock_guard<std::mutex> lock(state_.mtx);
-        state_.show_commands_panel = !state_.show_commands_panel;
-        state_.show_info_panel = false;
-        state_.show_stars_panel = false;
-        state_.show_gifts_panel = false;
     } else if (cmd == "stars close") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_stars_panel = false;
     } else if (cmd == "gifts close") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_gifts_panel = false;
-    } else if (cmd == "commands close") {
-        std::lock_guard<std::mutex> lock(state_.mtx);
-        state_.show_commands_panel = false;
     } else if (cmd == "theme dark") {
         config_.apply_theme("dark");
         config_.theme_name = "dark";
@@ -246,6 +169,9 @@ void App::on_command(const std::string& cmd) {
         config_.apply_theme("gruvbox");
         config_.theme_name = "gruvbox";
         config_.save();
+    } else if (cmd == "settings" || cmd == "config") {
+        // Just show info how to open config
+        // In a real app this would open a settings panel
     } else if (cmd == "quit" || cmd == "q") {
         screen_.Exit();
     } else if (cmd == "logout") {
@@ -306,11 +232,6 @@ void App::run() {
     ui::InfoPanel info_panel(state_);
     auto info_comp = info_panel.component();
 
-    ui::CommandsPanel commands_panel(state_);
-    commands_panel.set_on_command([this](const std::string& c) { on_command(c); });
-    auto commands_comp = commands_panel.component();
-    auto commands_focus = Maybe(commands_comp, &state_.show_commands_panel);
-
     // ── Focus container for main view ───────────────────────────────────
     auto main_container = Container::Horizontal({
         chatlist_comp,
@@ -318,7 +239,6 @@ void App::run() {
             chatview_comp,
             input_comp,
         }),
-        commands_focus,
     });
 
     // ── Root component ──────────────────────────────────────────────────
@@ -329,14 +249,13 @@ void App::run() {
         [&, tab_index]() {
             // Check auth state
             AuthState auth_st;
-            bool show_stars, show_gifts, show_info, show_commands;
+            bool show_stars, show_gifts, show_info;
             {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 auth_st = state_.auth_state;
                 show_stars = state_.show_stars_panel;
                 show_gifts = state_.show_gifts_panel;
                 show_info = state_.show_info_panel;
-                show_commands = state_.show_commands_panel;
             }
 
             if (auth_st == AuthState::READY && mode_ == UIMode::AUTH && !auth_ready_handled) {
@@ -344,7 +263,6 @@ void App::run() {
                 mode_ = UIMode::MAIN;
                 *tab_index = 1;
                 on_auth_ready();
-                chatlist_comp->TakeFocus();
             }
 
             if (auth_st != AuthState::READY && mode_ == UIMode::AUTH) {
@@ -380,9 +298,6 @@ void App::run() {
             } else if (show_info) {
                 main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
                 main_row.push_back(info_comp->Render());
-            } else if (show_commands) {
-                main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
-                main_row.push_back(commands_comp->Render());
             }
 
             return vbox({
@@ -390,18 +305,10 @@ void App::run() {
                 hbox(std::move(main_row)) | flex,
             });
         }
-    ) | CatchEvent([this, input_comp, chatlist_comp](Event event) {
+    ) | CatchEvent([this, input_comp](Event event) {
         // Global hotkeys
         if (event == Event::F2 && mode_ == UIMode::MAIN) {
             on_command("info");
-            return true;
-        }
-        if (event == Event::F3 && mode_ == UIMode::MAIN) {
-            on_command("stars");
-            return true;
-        }
-        if (event == Event::F4 && mode_ == UIMode::MAIN) {
-            on_command("gifts");
             return true;
         }
         if (event == Event::Escape && mode_ == UIMode::MAIN) {
@@ -420,13 +327,8 @@ void App::run() {
                     state_.show_gifts_panel = false;
                     closed_any = true;
                 }
-                if (state_.show_commands_panel) {
-                    state_.show_commands_panel = false;
-                    closed_any = true;
-                }
             }
             if (closed_any) {
-                chatlist_comp->TakeFocus();
                 return true;
             }
         }
@@ -438,14 +340,7 @@ void App::run() {
             (event == Event::Character(';') ||
              event == Event::Special("\x1B[59;5u") ||
              event == Event::Special("\x1B[59;5;u"))) {
-            on_command("commands");
             input_comp->TakeFocus();
-            return true;
-        }
-        if (mode_ == UIMode::MAIN && event == Event::Character('\x16')) {
-            if (paste_clipboard_photo()) {
-                return true;
-            }
             return true;
         }
         if (event == Event::Character('\x03')) {

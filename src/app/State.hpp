@@ -37,10 +37,6 @@ struct ChatEntry {
     bool is_channel = false;
     bool is_bot = false;
     bool is_private = false;
-    bool can_send_messages = true;
-    bool can_send_photos = true;
-    bool can_send_documents = true;
-    bool can_send_videos = true;
     int64_t order = 0;
 };
 
@@ -63,10 +59,6 @@ struct MessageEntry {
     std::string media_type;   // "", "Photo", "Video", "File", "Sticker", "Voice", "Gift", "Stars"
     std::string media_caption;
     std::string file_name;
-    std::string media_file_path;
-    std::string media_preview;
-    int32_t media_width = 0;
-    int32_t media_height = 0;
 
     // Reactions
     struct Reaction {
@@ -121,7 +113,6 @@ struct GiftEntry {
 // ── Auth state ──────────────────────────────────────────────────────────────
 enum class AuthState {
     NONE,
-    WAIT_TDLIB_PARAMETERS,
     WAIT_PHONE,
     WAIT_QR_CODE,
     WAIT_CODE,
@@ -172,11 +163,6 @@ struct AppState {
     bool show_info_panel = false;
     bool show_stars_panel = false;
     bool show_gifts_panel = false;
-    bool show_commands_panel = false;
-
-    // Compose area
-    bool composer_enabled = true;
-    std::string composer_notice;
 
     // Input
     std::string compose_text;

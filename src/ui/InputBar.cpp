@@ -15,28 +15,11 @@ Component InputBar::component() {
         auto& theme = Config::instance().theme;
 
         Elements parts;
-        bool enabled = true;
-        std::string notice;
-        {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            enabled = state_.composer_enabled;
-            notice = state_.composer_notice;
-        }
 
-        // Context banner (replying/editing or disabled composer)
+        // Context banner (replying/editing)
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
-            if (!enabled) {
-                parts.push_back(
-                    hbox({
-                        text(" ") | dim,
-                        text(notice.empty() ? "You can't send messages here." : notice)
-                            | color(Color::Palette256(theme.accent))
-                            | bold,
-                        filler(),
-                    }) | bgcolor(Color::Palette256(theme.input_bg))
-                );
-            } else if (state_.reply_to_msg_id != 0) {
+            if (state_.reply_to_msg_id != 0) {
                 parts.push_back(
                     hbox({
                         text(" Replying to message")
@@ -59,10 +42,6 @@ Component InputBar::component() {
             }
         }
 
-        if (!enabled) {
-            return vbox(std::move(parts));
-        }
-
         // Input field
         parts.push_back(
             hbox({
@@ -75,12 +54,6 @@ Component InputBar::component() {
 
         return vbox(std::move(parts));
     }) | CatchEvent([this](Event event) {
-        {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            if (!state_.composer_enabled) {
-                return false;
-            }
-        }
         if (event == Event::Return) {
             if (!input_text_.empty()) {
                 // Check for commands

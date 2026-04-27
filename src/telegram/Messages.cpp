@@ -2,91 +2,8 @@
 #include "Messages.hpp"
 #include "../app/Config.hpp"
 #include <algorithm>
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
 
 namespace tgcli {
-
-namespace {
-
-std::string shell_quote(const std::string& value) {
-    std::string out = "'";
-    for (char c : value) {
-        if (c == '\'') {
-            out += "'\\''";
-        } else {
-            out += c;
-        }
-    }
-    out += "'";
-    return out;
-}
-
-std::string capture_command(const std::string& cmd) {
-    std::string output;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return "";
-
-    char buffer[4096];
-    while (true) {
-        size_t n = fread(buffer, 1, sizeof(buffer), pipe);
-        if (n == 0) break;
-        output.append(buffer, n);
-    }
-    pclose(pipe);
-    return output;
-}
-
-std::string kitty_preview_for_file(const std::string& path) {
-    const char* term = std::getenv("TERM");
-    if (!term || std::string(term).find("kitty") == std::string::npos) {
-        return "";
-    }
-    if (path.empty()) return "";
-
-    std::string cmd = "kitty +kitten icat --align left --fit width --scale-up --no-trailing-newline ";
-    cmd += shell_quote(path);
-    return capture_command(cmd);
-}
-
-std::string photo_file_path(const td_api::object_ptr<td_api::photo>& photo, int32_t& file_id, int32_t& width, int32_t& height) {
-    file_id = 0;
-    width = 0;
-    height = 0;
-    if (!photo || photo->sizes_.empty()) return "";
-
-    const td_api::photoSize* best = nullptr;
-    for (const auto& size : photo->sizes_) {
-        if (!size || !size->photo_) continue;
-        if (!best || size->width_ > best->width_) {
-            best = size.get();
-        }
-    }
-
-    if (!best || !best->photo_ || !best->photo_->local_) return "";
-    file_id = best->photo_->id_;
-    width = best->width_;
-    height = best->height_;
-    return best->photo_->local_->path_;
-}
-
-std::string video_file_path(const td_api::object_ptr<td_api::video>& video, int32_t& file_id, int32_t& width, int32_t& height) {
-    file_id = 0;
-    width = 0;
-    height = 0;
-    if (!video || !video->video_ || !video->video_->local_) return "";
-    file_id = video->video_->id_;
-    width = video->width_;
-    height = video->height_;
-    return video->video_->local_->path_;
-}
-
-bool can_send_in_chat(const ChatEntry& chat) {
-    return chat.can_send_messages;
-}
-
-} // namespace
 
 Messages::Messages(TdClient& client) : client_(client) {}
 
@@ -133,13 +50,6 @@ void Messages::load_chats(int limit) {
                     entry.is_private = true;
                 }
             });
-        }
-
-        if (chat.permissions_) {
-            entry.can_send_messages = chat.permissions_->can_send_basic_messages_;
-            entry.can_send_photos = chat.permissions_->can_send_photos_;
-            entry.can_send_documents = chat.permissions_->can_send_documents_;
-            entry.can_send_videos = chat.permissions_->can_send_videos_;
         }
 
         // Extract last message preview
@@ -244,20 +154,9 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
                     if (content.text_) entry.text = content.text_->text_;
                 } else if constexpr (std::is_same_v<T, td_api::messagePhoto>) {
                     entry.media_type = "Photo";
-                    if (content.photo_) {
-                        int32_t file_id = 0;
-                        entry.media_file_path = photo_file_path(content.photo_, file_id, entry.media_width, entry.media_height);
-                        if (!entry.media_file_path.empty()) {
-                            entry.media_preview = kitty_preview_for_file(entry.media_file_path);
-                        }
-                    }
                     if (content.caption_) entry.media_caption = content.caption_->text_;
                 } else if constexpr (std::is_same_v<T, td_api::messageVideo>) {
                     entry.media_type = "Video";
-                    if (content.video_) {
-                        int32_t file_id = 0;
-                        entry.media_file_path = video_file_path(content.video_, file_id, entry.media_width, entry.media_height);
-                    }
                     if (content.caption_) entry.media_caption = content.caption_->text_;
                 } else if constexpr (std::is_same_v<T, td_api::messageDocument>) {
                     entry.media_type = "File";
@@ -271,9 +170,6 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
                     if (content.caption_) entry.media_caption = content.caption_->text_;
                 } else if constexpr (std::is_same_v<T, td_api::messageAnimation>) {
                     entry.media_type = "GIF";
-                    if (content.animation_ && content.animation_->animation_ && content.animation_->animation_->local_) {
-                        entry.media_file_path = content.animation_->animation_->local_->path_;
-                    }
                     if (content.caption_) entry.media_caption = content.caption_->text_;
                 } else {
                     entry.media_type = "Other";
@@ -335,25 +231,6 @@ void Messages::send_file(int64_t chat_id, const std::string& file_path) {
         nullptr,
         false,
         td_api::make_object<td_api::formattedText>("", std::vector<td_api::object_ptr<td_api::textEntity>>())
-    );
-
-    client_.send(td_api::make_object<td_api::sendMessage>(
-        chat_id, nullptr, nullptr, nullptr, nullptr, std::move(content)
-    ));
-}
-
-void Messages::send_photo(int64_t chat_id, const std::string& file_path) {
-    auto content = td_api::make_object<td_api::inputMessagePhoto>(
-        td_api::make_object<td_api::inputFileLocal>(file_path),
-        nullptr,
-        nullptr,
-        std::vector<int32_t>{},
-        0,
-        0,
-        td_api::make_object<td_api::formattedText>("", std::vector<td_api::object_ptr<td_api::textEntity>>()),
-        false,
-        nullptr,
-        false
     );
 
     client_.send(td_api::make_object<td_api::sendMessage>(

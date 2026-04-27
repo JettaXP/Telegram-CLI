@@ -1,9 +1,9 @@
-// ── Telegram-CLI — Entry Point ──────────────────────────────────────────────
+// ── Telegram CLI — Entry Point ──────────────────────────────────────────────
 // A full-featured Telegram client for Linux terminals.
 // Built with TDLib (Telegram's official C++ library) + FTXUI (modern TUI).
 //
 // Usage:
-//   telegram-cli
+//   ./tgcli
 //
 // First launch will prompt for phone number authentication.
 // Config is stored in: ~/.config/tgcli/config.ini

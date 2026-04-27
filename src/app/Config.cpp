@@ -62,7 +62,6 @@ void Config::load() {
         if (key == "api_id") api_id = std::stoi(val);
         else if (key == "api_hash") api_hash = val;
         else if (key == "phone_number") phone_number = val;
-        else if (key == "account_name") account_name = val;
         else if (key == "theme") {
             theme_name = val;
             apply_theme(val);
@@ -82,7 +81,6 @@ void Config::save() const {
     out << "api_hash=" << api_hash << "\n";
     if (!phone_number.empty())
         out << "phone_number=" << phone_number << "\n";
-    out << "account_name=" << account_name << "\n";
     out << "theme=" << theme_name << "\n";
 }
 

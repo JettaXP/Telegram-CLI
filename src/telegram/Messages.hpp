@@ -22,9 +22,6 @@ public:
     // Send a file (path on disk)
     void send_file(int64_t chat_id, const std::string& file_path);
 
-    // Send a photo (path on disk)
-    void send_photo(int64_t chat_id, const std::string& file_path);
-
     // Edit a message
     void edit_text(int64_t chat_id, int64_t message_id, const std::string& new_text);
 

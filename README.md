@@ -1,16 +1,16 @@
-# Telegram-CLI
+# Telegram CLI
 
 A full-featured Telegram client for Linux terminals, built in C++ using **TDLib** and **FTXUI**.
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║ Telegram-CLI | [●] Connected  |  YourName                        ║
+║  TGCLI  | [●] Connected  |  YourName                             ║
 ╠═══════════╦══════════════════════════════════════════╦═════════════╣
 ║  Chats    ║  Alice                          14:32   ║  Info       ║
 ║───────────║  Hey! How are you?                      ║─────────────║
 ║  Alice  2 ║                                         ║  Private    ║
 ║  Bob      ║  You                            14:33   ║  Chat       ║
-║  Group A  ║  I'm good! Working on telegram-cli      ║             ║
+║  Group A  ║  I'm good! Working on tgcli             ║             ║
 ║  Chan B   ║                                         ║  Actions:   ║
 ║           ║  Alice                          14:35   ║  :stars     ║
 ║           ║  Cool! Show me when it's done           ║  :gifts     ║
@@ -48,7 +48,10 @@ Once a release is published on GitHub, you can install the latest version system
 curl -sL https://raw.githubusercontent.com/JettaXP/Telegram-CLI/main/install.sh | sudo bash
 ```
 
-After installation, just run `tgcli` or `telegram-cli`.
+After installation, just run:
+```bash
+tgcli
+```
 
 ### Method 2: Build from Source
 
@@ -61,7 +64,7 @@ chmod +x scripts/install_deps.sh
 chmod +x scripts/build_tdlib.sh
 ./scripts/build_tdlib.sh
 
-# 3. Build Telegram-CLI
+# 3. Build Telegram CLI
 mkdir -p build && cd build
 cmake .. -DTd_DIR=$(pwd)/../deps/td-install/lib/cmake/Td
 make -j$(nproc)
@@ -71,8 +74,6 @@ sudo make install
 
 # 5. Run from anywhere
 tgcli
-# or
-telegram-cli
 ```
 
 ## Keyboard Shortcuts
@@ -84,9 +85,6 @@ telegram-cli
 | `Enter` | Select chat / Send message |
 | `/` | Toggle search in chat list |
 | `F2` | Toggle info panel |
-| `F3` | Toggle Stars panel |
-| `F4` | Toggle Gifts panel |
-| `Ctrl+;` | Open commands panel |
 | `r` | Reply to last message |
 | `e` | Edit last outgoing message |
 | `d` | Delete last message |
@@ -103,7 +101,7 @@ Type in the message input bar (prefix with `:`):
 
 | Command | Action |
 |---------|--------|
-| `:settings` | Open commands panel |
+| `:settings` | Information about config location |
 | `:stars` | Toggle Stars balance panel |
 | `:gifts` | Toggle Gifts & NFT panel |
 | `:info` | Toggle info panel |
@@ -132,7 +130,7 @@ This client integrates with the [exteraGram](https://exteragram.app) API to show
 Config file: `~/.config/tgcli/config.ini`
 
 ```ini
-# Telegram-CLI Configuration
+# Telegram CLI Configuration
 api_id=YOUR_API_ID
 api_hash=YOUR_API_HASH
 theme=dark
@@ -167,7 +165,6 @@ tgcli/
 │       ├── InputBar.hpp/cpp   # Message compose
 │       ├── StarsPanel.hpp/cpp # Stars balance view
 │       ├── GiftsPanel.hpp/cpp # Gifts/NFT browser
-│       ├── CommandsPanel.hpp/cpp # Keyboard command panel
 │       └── InfoPanel.hpp/cpp  # Chat info sidebar
 └── README.md
 ```
