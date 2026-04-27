@@ -125,13 +125,19 @@ void TdClient::process_auth_state(td_api::object_ptr<td_api::AuthorizationState>
         if constexpr (std::is_same_v<T, td_api::authorizationStateWaitTdlibParameters>) {
             auto& cfg = Config::instance();
             auto params = td_api::make_object<td_api::setTdlibParameters>();
+            params->use_test_dc_ = false;
             params->database_directory_ = cfg.tdlib_data_dir;
+            params->files_directory_ = "";
+            params->database_encryption_key_ = "";
+            params->use_file_database_ = true;
+            params->use_chat_info_database_ = true;
             params->use_message_database_ = true;
             params->use_secret_chats_ = true;
             params->api_id_ = cfg.api_id;
             params->api_hash_ = cfg.api_hash;
             params->system_language_code_ = "en";
             params->device_model_ = "TelegramCLI";
+            params->system_version_ = "Linux";
             params->application_version_ = "1.0.0";
             send(std::move(params));
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateWaitPhoneNumber>) {
