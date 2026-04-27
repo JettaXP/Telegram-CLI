@@ -9,6 +9,20 @@ ALIAS_NAME="telegram-cli"
 INSTALL_DIR="/usr/local/bin"
 TMP_DIR="$(mktemp -d)"
 
+resolve_user_bin_dir() {
+  local target_user="${SUDO_USER:-$USER}"
+  local target_home
+
+  target_home="$(getent passwd "$target_user" | cut -d: -f6)"
+  if [ -n "$target_home" ]; then
+    printf '%s\n' "$target_home/.local/bin"
+  else
+    printf '%s\n' "$HOME/.local/bin"
+  fi
+}
+
+LOCAL_BIN_DIR="$(resolve_user_bin_dir)"
+
 cleanup() {
   rm -rf "$TMP_DIR"
 }
@@ -39,6 +53,9 @@ fi
 echo "[*] Installing to $INSTALL_DIR/$PRIMARY_NAME (might prompt for sudo)..."
 sudo install -m 755 "$TMP_DIR/$PRIMARY_NAME" "$INSTALL_DIR/$PRIMARY_NAME"
 sudo ln -sfn "$PRIMARY_NAME" "$INSTALL_DIR/$ALIAS_NAME"
+sudo mkdir -p "$LOCAL_BIN_DIR"
+sudo ln -sfn "$INSTALL_DIR/$PRIMARY_NAME" "$LOCAL_BIN_DIR/$PRIMARY_NAME"
+sudo ln -sfn "$INSTALL_DIR/$PRIMARY_NAME" "$LOCAL_BIN_DIR/$ALIAS_NAME"
 
 echo ""
 echo "[+] Installation complete!"
