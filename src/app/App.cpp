@@ -60,20 +60,13 @@ void App::on_auth_ready() {
     std::thread([this]() {
         // Fetch account and data off the UI thread so the TTY stays responsive.
         auth_->fetch_me();
-        messages_->load_chats(500);
 
-        int64_t chat_id = 0;
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             if (!state_.chats.empty()) {
                 state_.selected_chat_index = 0;
                 state_.selected_chat_id = state_.chats.front().id;
             }
-            chat_id = state_.selected_chat_id;
-        }
-
-        if (chat_id != 0) {
-            on_chat_selected(chat_id);
         }
 
         std::thread([this]() {
