@@ -141,17 +141,18 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
     auto bubble = vbox(std::move(msg_parts))
         | border
         | color(Color::Palette256(theme.input_border))
-        | bgcolor(Color::Palette256(theme.chatview_bg));
+        | bgcolor(Color::Palette256(theme.chatview_bg))
+        | size(WIDTH, LESS_THAN, 72);
 
     // Outgoing messages get a slight visual distinction
     if (msg.is_outgoing) {
         bubble = hbox({
             filler() | size(WIDTH, EQUAL, 4),
-            bubble | flex,
+            bubble,
         });
     } else {
         bubble = hbox({
-            bubble | flex,
+            bubble,
             filler() | size(WIDTH, EQUAL, 4),
         });
     }
@@ -221,8 +222,7 @@ Component ChatView::component() {
             );
         }
 
-        auto messages_view = vbox(std::move(msg_elements))
-            | flex; // No yframe so it doesn't align top implicitly
+        auto messages_view = vbox(std::move(msg_elements));
 
         auto footer = hbox({
             filler(),

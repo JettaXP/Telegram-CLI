@@ -348,6 +348,7 @@ void App::run() {
                 mode_ = UIMode::MAIN;
                 *tab_index = 1;
                 on_auth_ready();
+                chatlist_comp->TakeFocus();
             }
 
             if (auth_st != AuthState::READY && mode_ == UIMode::AUTH) {
@@ -393,7 +394,7 @@ void App::run() {
                 hbox(std::move(main_row)) | flex,
             });
         }
-    ) | CatchEvent([this, input_comp](Event event) {
+    ) | CatchEvent([this, input_comp, chatlist_comp](Event event) {
         // Global hotkeys
         if (event == Event::F2 && mode_ == UIMode::MAIN) {
             on_command("info");
@@ -429,6 +430,7 @@ void App::run() {
                 }
             }
             if (closed_any) {
+                chatlist_comp->TakeFocus();
                 return true;
             }
         }
