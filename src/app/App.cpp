@@ -30,8 +30,8 @@ App::App()
 
     // Set API credentials (from user's provided values)
     if (config_.api_id == 0) {
-        config_.api_id = 0; // Replace with your api_id
-        config_.api_hash = ""; // Replace with your api_hash
+        config_.api_id = 0;
+        config_.api_hash = "";
         config_.save();
     }
 
