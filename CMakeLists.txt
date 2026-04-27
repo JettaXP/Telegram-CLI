@@ -75,10 +75,10 @@ target_link_libraries(tgcli PRIVATE
     pthread
 )
 
-# ── Install as both 'telegram-cli' and 'telegram' ───────────────────────────
+# ── Install aliases for both launch names ───────────────────────────────────
 install(TARGETS tgcli DESTINATION bin)
 
-# Create aliases so the user can type 'telegram-cli' or 'telegram'
+# Create aliases so the user can type 'telegram-cli', 'telegram', or 'tgcli'
 install(CODE "
     execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
         \"${CMAKE_INSTALL_PREFIX}/bin/tgcli\"

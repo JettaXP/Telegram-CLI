@@ -4,7 +4,8 @@ set -euo pipefail
 
 REPO="JettaXP/Telegram-CLI"
 ASSET_HINT="tgcli"
-INSTALL_NAME="telegram-cli"
+PRIMARY_NAME="tgcli"
+ALIAS_NAME="telegram-cli"
 INSTALL_DIR="/usr/local/bin"
 TMP_DIR="$(mktemp -d)"
 
@@ -28,16 +29,17 @@ if [ -z "$LATEST_URL" ]; then
 fi
 
 echo "[*] Downloading from $LATEST_URL..."
-curl -fsSL -o "$TMP_DIR/$INSTALL_NAME" "$LATEST_URL"
+curl -fsSL -o "$TMP_DIR/$PRIMARY_NAME" "$LATEST_URL"
 
-if [ ! -s "$TMP_DIR/$INSTALL_NAME" ]; then
+if [ ! -s "$TMP_DIR/$PRIMARY_NAME" ]; then
   echo "[-] Error: Downloaded binary is empty."
   exit 1
 fi
 
-echo "[*] Installing to $INSTALL_DIR/$INSTALL_NAME (might prompt for sudo)..."
-sudo install -m 755 "$TMP_DIR/$INSTALL_NAME" "$INSTALL_DIR/$INSTALL_NAME"
+echo "[*] Installing to $INSTALL_DIR/$PRIMARY_NAME (might prompt for sudo)..."
+sudo install -m 755 "$TMP_DIR/$PRIMARY_NAME" "$INSTALL_DIR/$PRIMARY_NAME"
+sudo ln -sfn "$PRIMARY_NAME" "$INSTALL_DIR/$ALIAS_NAME"
 
 echo ""
 echo "[+] Installation complete!"
-echo "    You can now launch the app from any terminal by typing: $INSTALL_NAME"
+echo "    You can now launch the app from any terminal by typing: $PRIMARY_NAME or $ALIAS_NAME"

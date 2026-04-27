@@ -48,10 +48,7 @@ Once a release is published on GitHub, you can install the latest version system
 curl -sL https://raw.githubusercontent.com/JettaXP/Telegram-CLI/main/install.sh | sudo bash
 ```
 
-After installation, just run:
-```bash
-telegram-cli
-```
+After installation, just run `tgcli` or `telegram-cli`.
 
 ### Method 2: Build from Source
 
@@ -73,6 +70,8 @@ make -j$(nproc)
 sudo make install
 
 # 5. Run from anywhere
+tgcli
+# or
 telegram-cli
 ```
 
