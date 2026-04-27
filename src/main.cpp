@@ -34,19 +34,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include "app/App.hpp"
-
-#include <csignal>
 #include <iostream>
-
-namespace {
-void handle_sigint(int) {
-    std::_Exit(130);
-}
-} // namespace
 
 int main() {
     try {
-        std::signal(SIGINT, handle_sigint);
         tgcli::App app;
         app.run();
     } catch (const std::exception& e) {
