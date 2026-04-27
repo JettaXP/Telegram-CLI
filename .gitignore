@@ -1,0 +1,9 @@
+build/
+bin/
+obj/
+deps/td-install/
+deps/td-src/
+*.o
+*.a
+*.so
+*.log

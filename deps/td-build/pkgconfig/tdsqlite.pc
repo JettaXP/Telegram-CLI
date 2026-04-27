@@ -1,0 +1,9 @@
+prefix=/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-install
+
+Name: tdsqlite
+Description: Telegram Library - SQLite
+Version: 1.8.63
+
+CFlags: -I"${prefix}/include"
+Libs: -L"${prefix}/lib" -ltdsqlite
+Libs.private: -L"/usr/lib" -l:libcrypto.so -ldl -L"/usr/lib" -l:libz.so

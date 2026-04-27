@@ -1,0 +1,19 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tdtl/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tdutils/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tdutils/generate/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/td/generate/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/td/generate/tl-parser/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tde2e/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tdactor/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tdnet/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/sqlite/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/tddb/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/test/cmake_install.cmake",
+		"/home/jettax/.gemini/antigravity/scratch/tgcli/deps/td-build/benchmark/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
