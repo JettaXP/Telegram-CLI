@@ -20,6 +20,7 @@ private:
     AppState& state_;
     OnAction on_action_;
     int selected_msg_index_ = -1;
+    ftxui::Box box_;
 
     ftxui::Element render_message(const MessageEntry& msg, bool selected);
     std::string format_time(int32_t timestamp);

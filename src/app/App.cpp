@@ -28,13 +28,6 @@ App::App()
     // Load configuration
     config_.load();
 
-    // Set API credentials (from user's provided values)
-    if (config_.api_id == 0) {
-        config_.api_id = 0;
-        config_.api_hash = "";
-        config_.save();
-    }
-
     // Initialize TDLib client
     client_ = std::make_unique<TdClient>(state_);
     auth_ = std::make_unique<Auth>(*client_);
@@ -55,6 +48,10 @@ App::~App() {
 }
 
 void App::on_auth_ready() {
+    if (auth_ready_initialized_) {
+        return;
+    }
+    auth_ready_initialized_ = true;
     mode_ = UIMode::MAIN;
 
     // Fetch user info
@@ -62,6 +59,23 @@ void App::on_auth_ready() {
 
     // Load chats
     messages_->load_chats(50);
+
+    {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        if (!state_.chats.empty()) {
+            state_.selected_chat_index = 0;
+            state_.selected_chat_id = state_.chats.front().id;
+        }
+    }
+
+    int64_t chat_id = 0;
+    {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        chat_id = state_.selected_chat_id;
+    }
+    if (chat_id != 0) {
+        on_chat_selected(chat_id);
+    }
 
     // Fetch exteraGram profiles in background
     std::thread([this]() {
@@ -84,7 +98,7 @@ void App::on_chat_selected(int64_t chat_id) {
             state_.scroll_offset = 0;
         }
 
-        messages_->load_history(chat_id, 30);
+        messages_->load_history(chat_id, 100);
 
         // Mark as read
         std::lock_guard<std::mutex> lock(state_.mtx);
@@ -229,6 +243,7 @@ void App::run() {
 
     // ── Root component ──────────────────────────────────────────────────
     auto tab_index = std::make_shared<int>(0);
+    bool auth_ready_handled = false;
 
     auto root = Renderer(Container::Tab({auth_component, main_container}, tab_index.get()),
         [&, tab_index]() {
@@ -241,6 +256,13 @@ void App::run() {
                 show_stars = state_.show_stars_panel;
                 show_gifts = state_.show_gifts_panel;
                 show_info = state_.show_info_panel;
+            }
+
+            if (auth_st == AuthState::READY && mode_ == UIMode::AUTH && !auth_ready_handled) {
+                auth_ready_handled = true;
+                mode_ = UIMode::MAIN;
+                *tab_index = 1;
+                on_auth_ready();
             }
 
             if (auth_st != AuthState::READY && mode_ == UIMode::AUTH) {
@@ -283,10 +305,21 @@ void App::run() {
                 hbox(std::move(main_row)) | flex,
             });
         }
-    ) | CatchEvent([this](Event event) {
+    ) | CatchEvent([this, input_comp](Event event) {
         // Global hotkeys
         if (event == Event::F2 && mode_ == UIMode::MAIN) {
             on_command("info");
+            return true;
+        }
+        if (event == Event::Character(':') && mode_ == UIMode::MAIN) {
+            input_comp->TakeFocus();
+            return false;
+        }
+        if (mode_ == UIMode::MAIN &&
+            (event == Event::Character(';') ||
+             event == Event::Special("\x1B[59;5u") ||
+             event == Event::Special("\x1B[59;5;u"))) {
+            input_comp->TakeFocus();
             return true;
         }
         if (event == Event::Character('\x03')) {

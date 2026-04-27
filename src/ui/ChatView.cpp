@@ -165,8 +165,9 @@ Component ChatView::component() {
                 filler(),
                 text("Select a chat to start messaging") | dim | center,
                 text("Use arrows or j/k to navigate") | dim | center,
+                text("[Tab] Focus input | [:] Command | [F2] Info") | dim | center,
                 filler(),
-            }) | flex | bgcolor(Color::Palette256(theme.chatview_bg));
+            }) | flex;
         }
 
         // Find current chat title
@@ -189,7 +190,11 @@ Component ChatView::component() {
         // Messages
         Elements msg_elements;
         int total = static_cast<int>(state_.messages.size());
-        int view_size = 50;
+        
+        // Dynamic view size
+        int term_height = box_.y_max > 0 ? (box_.y_max - box_.y_min) : 30;
+        int view_size = std::max(5, term_height / 4); // approx 4 lines per message
+        
         int start = std::max(0, total - view_size + state_.scroll_offset);
         int end = std::min(total, start + view_size);
 
@@ -206,14 +211,14 @@ Component ChatView::component() {
         }
 
         auto messages_view = vbox(std::move(msg_elements))
-            | yframe  // scrollable
-            | flex;
+            | flex; // No yframe so it doesn't align top implicitly
 
         return vbox({
             header,
             separator() | color(Color::Palette256(theme.border_color)),
+            filler(), // Pushes messages to the bottom
             messages_view,
-        }) | flex;
+        }) | flex | reflect(box_);
     }) | CatchEvent([this](Event event) {
         // Handle mouse wheel for messages
         if (event.is_mouse()) {

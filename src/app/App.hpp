@@ -48,6 +48,7 @@ private:
         MAIN
     };
     UIMode mode_ = UIMode::AUTH;
+    bool auth_ready_initialized_ = false;
 };
 
 } // namespace tgcli

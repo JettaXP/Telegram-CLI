@@ -17,6 +17,29 @@ Component ChatList::component() {
         std::lock_guard<std::mutex> lock(state_.mtx);
         auto& theme = Config::instance().theme;
 
+        std::vector<int> filtered_indices;
+        filtered_indices.reserve(state_.chats.size());
+        for (int idx = 0; idx < static_cast<int>(state_.chats.size()); ++idx) {
+            const auto& chat = state_.chats[idx];
+            if (!searching_ || search_text_.empty()) {
+                filtered_indices.push_back(idx);
+                continue;
+            }
+
+            std::string lower_title = chat.title;
+            std::string lower_search = search_text_;
+            std::transform(lower_title.begin(), lower_title.end(), lower_title.begin(), ::tolower);
+            std::transform(lower_search.begin(), lower_search.end(), lower_search.begin(), ::tolower);
+            if (lower_title.find(lower_search) != std::string::npos) {
+                filtered_indices.push_back(idx);
+            }
+        }
+
+        int max_visible = box_.y_max > 0 ? std::max(5, (box_.y_max - box_.y_min) / 3 + 1) : 40;
+        int max_scroll = std::max(0, static_cast<int>(filtered_indices.size()) - max_visible);
+        if (list_scroll_ < 0) list_scroll_ = 0;
+        if (list_scroll_ > max_scroll) list_scroll_ = max_scroll;
+
         Elements items;
 
         // Header
@@ -41,39 +64,17 @@ Component ChatList::component() {
 
         items.push_back(separator() | color(Color::Palette256(theme.border_color)));
 
-        // Manual scroll window
-        int max_visible = 15; // approximate number of chats that fit
-        int start_idx = std::max(0, state_.selected_chat_index - max_visible / 2);
-
         // Chat entries
-        int idx = 0;
-        int rendered = 0;
-        
-        // We'll store the mapping of visual row to actual chat_id for mouse clicks
         visible_chat_ids_.clear();
 
-        for (const auto& chat : state_.chats) {
-            // Search filter
-            if (searching_ && !search_text_.empty()) {
-                std::string lower_title = chat.title;
-                std::string lower_search = search_text_;
-                std::transform(lower_title.begin(), lower_title.end(), lower_title.begin(), ::tolower);
-                std::transform(lower_search.begin(), lower_search.end(), lower_search.begin(), ::tolower);
-                if (lower_title.find(lower_search) == std::string::npos) {
-                    idx++;
-                    continue;
-                }
-            }
-
-            if (rendered < start_idx) {
-                rendered++;
-                idx++;
-                continue;
-            }
-            if (visible_chat_ids_.size() >= static_cast<size_t>(max_visible)) {
+        for (int visible_idx = 0; visible_idx < max_visible; ++visible_idx) {
+            int filtered_idx = list_scroll_ + visible_idx;
+            if (filtered_idx >= static_cast<int>(filtered_indices.size())) {
                 break;
             }
 
+            int idx = filtered_indices[filtered_idx];
+            const auto& chat = state_.chats[idx];
             visible_chat_ids_.push_back({idx, chat.id});
 
             bool selected = (idx == state_.selected_chat_index);
@@ -141,9 +142,6 @@ Component ChatList::component() {
 
             items.push_back(row);
             items.push_back(separator() | dim | color(Color::Palette256(theme.border_color)));
-            
-            rendered++;
-            idx++;
         }
 
         // Fill remaining space
@@ -153,15 +151,17 @@ Component ChatList::component() {
             | size(WIDTH, EQUAL, 28)
             | bgcolor(Color::Palette256(theme.chatlist_bg))
             | reflect(box_);
-    }) | CatchEvent([this](Event event) {
+    }) | CatchEvent([this, search_input](Event event) {
+        int max_visible = box_.y_max > 0 ? std::max(5, (box_.y_max - box_.y_min) / 3 + 1) : 40;
+
         // Handle mouse clicks
         if (event.is_mouse()) {
             if (!box_.Contain(event.mouse().x, event.mouse().y)) {
                 return false; // let other components handle mouse!
             }
 
-            if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Pressed) {
-                int start_y = searching_ ? 3 : 2; // header(1) + search(1)? + sep(1)
+            if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
+                int start_y = searching_ ? 3 : 2; // header(1) + optional search(1) + sep(1)
                 int local_y = event.mouse().y - box_.y_min;
                 
                 if (local_y >= start_y) {
@@ -175,21 +175,38 @@ Component ChatList::component() {
                 }
                 return true;
             }
-            if (event.mouse().button == Mouse::WheelDown) {
-                std::lock_guard<std::mutex> lock(state_.mtx);
-                if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) {
-                    state_.selected_chat_index++;
-                }
-                return true;
-            }
             if (event.mouse().button == Mouse::WheelUp) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
-                if (state_.selected_chat_index > 0) {
-                    state_.selected_chat_index--;
+                if (list_scroll_ > 0) {
+                    list_scroll_--;
                 }
                 return true;
             }
-            return true; // We consumed the mouse event inside our box
+            if (event.mouse().button == Mouse::WheelDown) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                int total_visible = 0;
+                for (const auto& chat : state_.chats) {
+                    if (!searching_ || search_text_.empty()) {
+                        total_visible++;
+                        continue;
+                    }
+
+                    std::string lower_title = chat.title;
+                    std::string lower_search = search_text_;
+                    std::transform(lower_title.begin(), lower_title.end(), lower_title.begin(), ::tolower);
+                    std::transform(lower_search.begin(), lower_search.end(), lower_search.begin(), ::tolower);
+                    if (lower_title.find(lower_search) != std::string::npos) {
+                        total_visible++;
+                    }
+                }
+                int max_visible_local = max_visible;
+                int max_scroll_local = std::max(0, total_visible - max_visible_local);
+                if (list_scroll_ < max_scroll_local) {
+                    list_scroll_++;
+                }
+                return true;
+            }
+            return false;
         }
 
         // If searching, let input handle printable characters (except Esc and Enter)
@@ -224,6 +241,9 @@ Component ChatList::component() {
                     state_.selected_chat_id = state_.chats[state_.selected_chat_index].id;
                     on_select_(state_.selected_chat_id);
                 }
+                if (state_.selected_chat_index >= list_scroll_ + max_visible) {
+                    list_scroll_ = state_.selected_chat_index - max_visible + 1;
+                }
             }
             return true;
         }
@@ -235,12 +255,19 @@ Component ChatList::component() {
                     state_.selected_chat_id = state_.chats[state_.selected_chat_index].id;
                     on_select_(state_.selected_chat_id);
                 }
+                if (state_.selected_chat_index < list_scroll_) {
+                    list_scroll_ = state_.selected_chat_index;
+                }
             }
             return true;
         }
         if (event == Event::Character('/')) {
             searching_ = !searching_;
-            if (!searching_) search_text_.clear();
+            if (searching_) {
+                search_input->TakeFocus();
+            } else {
+                search_text_.clear();
+            }
             return true;
         }
         if (event == Event::Return) {

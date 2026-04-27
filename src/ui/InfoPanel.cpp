@@ -71,7 +71,7 @@ Component InfoPanel::component() {
                 info_items.push_back(
                     hbox({
                         text("  " + badge + " ") | color(Color::Palette256(badge_col)),
-                        text("ExteraGram " + status) | color(Color::Palette256(badge_col)),
+                        text("exteraGram " + status) | color(Color::Palette256(badge_col)),
                     })
                 );
             }
@@ -96,7 +96,7 @@ Component InfoPanel::component() {
         info_items.push_back(text("   :stars  View Stars") | dim);
         info_items.push_back(text("   :gifts  View Gifts") | dim);
         info_items.push_back(text("   :mute   Mute Chat") | dim);
-        info_items.push_back(text("   i       Toggle panel") | dim);
+        info_items.push_back(text("   F2      Toggle panel") | dim);
 
         info_items.push_back(filler());
 

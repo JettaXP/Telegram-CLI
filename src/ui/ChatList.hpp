@@ -21,6 +21,7 @@ private:
     OnChatSelect on_select_;
     std::string search_text_;
     bool searching_ = false;
+    int list_scroll_ = 0;
     ftxui::Box box_;
     std::vector<std::pair<int, int64_t>> visible_chat_ids_;
 };

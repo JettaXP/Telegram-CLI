@@ -23,7 +23,7 @@ A full-featured Telegram client for Linux terminals, built in C++ using **TDLib*
 
 - **Full Telegram messaging** — send, receive, reply, forward, edit, delete
 - **Real-time updates** — messages appear instantly via TDLib push
-- **ExteraGram badges** — supporter/developer checkmarks from ExteraGram API
+- **exteraGram badges** — supporter/developer checkmarks from exteraGram API
 - **Telegram Stars** — view balance, transaction history
 - **Gifts & NFTs** — browse, send, convert to NFT, transfer collectibles
 - **Premium detection** — shows premium badge next to usernames
@@ -176,7 +176,7 @@ tgcli/
 | Telegram API | [TDLib](https://github.com/tdlib/td) — official Telegram C++ library |
 | Terminal UI | [FTXUI](https://github.com/ArthurSonzogni/FTXUI) — modern declarative TUI |
 | JSON | [nlohmann/json](https://github.com/nlohmann/json) — header-only JSON |
-| HTTP | libcurl — for ExteraGram API |
+| HTTP | libcurl — for exteraGram API |
 | Build | CMake 3.14+ |
 
 ## License

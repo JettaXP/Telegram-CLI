@@ -198,6 +198,9 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
     std::reverse(entries.begin(), entries.end());
 
     std::lock_guard<std::mutex> lock(state.mtx);
+    if (state.selected_chat_id != chat_id) {
+        return;
+    }
     if (from_message_id == 0) {
         state.messages = std::move(entries);
     } else {
