@@ -165,7 +165,7 @@ Component ChatView::component() {
                 filler(),
                 text("Select a chat to start messaging") | dim | center,
                 text("Use arrows or j/k to navigate") | dim | center,
-                text("[Tab] Focus input | [:] Command | [F2] Info") | dim | center,
+                text("[Tab] Focus input | [Ctrl+;] Command | [:] Command | [F2] Info") | dim | center,
                 filler(),
             }) | flex;
         }
