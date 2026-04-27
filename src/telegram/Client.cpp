@@ -176,8 +176,7 @@ void TdClient::process_auth_state(td_api::object_ptr<td_api::AuthorizationState>
             state_.auth_state = AuthState::WAIT_REGISTRATION;
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateReady>) {
             state_.auth_state = AuthState::READY;
-            // Fetch main chat list
-            send(td_api::make_object<td_api::loadChats>(td_api::make_object<td_api::chatListMain>(), 100));
+            send(td_api::make_object<td_api::loadChats>(td_api::make_object<td_api::chatListMain>(), 500));
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateLoggingOut>) {
             state_.auth_state = AuthState::LOGGING_OUT;
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateClosed>) {

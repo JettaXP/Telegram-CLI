@@ -57,39 +57,35 @@ void App::on_auth_ready() {
     }
     auth_ready_initialized_ = true;
     mode_ = UIMode::MAIN;
+    std::thread([this]() {
+        // Fetch account and data off the UI thread so the TTY stays responsive.
+        auth_->fetch_me();
+        messages_->load_chats(500);
 
-    // Fetch user info
-    auth_->fetch_me();
-
-    // Load chats
-    messages_->load_chats(50);
-
-    {
-        std::lock_guard<std::mutex> lock(state_.mtx);
-        if (!state_.chats.empty()) {
-            state_.selected_chat_index = 0;
-            state_.selected_chat_id = state_.chats.front().id;
+        int64_t chat_id = 0;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            if (!state_.chats.empty()) {
+                state_.selected_chat_index = 0;
+                state_.selected_chat_id = state_.chats.front().id;
+            }
+            chat_id = state_.selected_chat_id;
         }
-    }
 
-    int64_t chat_id = 0;
-    {
-        std::lock_guard<std::mutex> lock(state_.mtx);
-        chat_id = state_.selected_chat_id;
-    }
-    if (chat_id != 0) {
-        on_chat_selected(chat_id);
-    }
+        if (chat_id != 0) {
+            on_chat_selected(chat_id);
+        }
 
-    // Fetch exteraGram profiles in background
-    std::thread([this]() {
-        ExteraGram::fetch_profiles(state_);
-    }).detach();
+        std::thread([this]() {
+            ExteraGram::fetch_profiles(state_);
+        }).detach();
 
-    // Fetch Stars balance in background
-    std::thread([this]() {
-        stars_->fetch_balance();
-        stars_->fetch_transactions();
+        std::thread([this]() {
+            stars_->fetch_balance();
+            stars_->fetch_transactions();
+        }).detach();
+
+        screen_.Post(Event::Custom);
     }).detach();
 }
 
