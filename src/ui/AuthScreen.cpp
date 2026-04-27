@@ -81,7 +81,10 @@ Component AuthScreen::component() {
     pass_opt.on_enter = [this] {
         { std::lock_guard<std::mutex> lock(state_.mtx); state_.auth_hint.clear(); }
         if (!password_text_.empty()) {
-            auth_.send_password(password_text_);
+            std::string pwd = password_text_;
+            pwd.erase(std::remove(pwd.begin(), pwd.end(), '\n'), pwd.end());
+            pwd.erase(std::remove(pwd.begin(), pwd.end(), '\r'), pwd.end());
+            auth_.send_password(pwd);
             password_text_.clear();
         }
     };
