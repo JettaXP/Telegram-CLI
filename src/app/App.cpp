@@ -7,6 +7,7 @@
 #include "../ui/ChatList.hpp"
 #include "../ui/ChatView.hpp"
 #include "../ui/InputBar.hpp"
+#include "../ui/CommandsPanel.hpp"
 #include "../ui/StarsPanel.hpp"
 #include "../ui/GiftsPanel.hpp"
 #include "../ui/InfoPanel.hpp"
@@ -152,7 +153,22 @@ bool App::paste_clipboard_photo() {
     int rc = std::system(cmd.c_str());
     if (rc != 0 || !std::filesystem::exists(tmp_path) || std::filesystem::file_size(tmp_path) == 0) {
         std::filesystem::remove(tmp_path, ec);
-        return false;
+
+        for (const char* mime : {"image/png", "image/jpeg"}) {
+            cmd = "wl-paste --no-newline --type ";
+            cmd += mime;
+            cmd += " > ";
+            cmd += "'" + tmp_path.string() + "'";
+            rc = std::system(cmd.c_str());
+            if (rc == 0 && std::filesystem::exists(tmp_path) && std::filesystem::file_size(tmp_path) > 0) {
+                break;
+            }
+            std::filesystem::remove(tmp_path, ec);
+        }
+        if (!std::filesystem::exists(tmp_path) || std::filesystem::file_size(tmp_path) == 0) {
+            std::filesystem::remove(tmp_path, ec);
+            return false;
+        }
     }
 
     messages_->send_photo(state_.selected_chat_id, tmp_path.string());
@@ -294,6 +310,11 @@ void App::run() {
     ui::InfoPanel info_panel(state_);
     auto info_comp = info_panel.component();
 
+    ui::CommandsPanel commands_panel(state_);
+    commands_panel.set_on_command([this](const std::string& c) { on_command(c); });
+    auto commands_comp = commands_panel.component();
+    auto commands_focus = Maybe(commands_comp, &state_.show_commands_panel);
+
     // ── Focus container for main view ───────────────────────────────────
     auto main_container = Container::Horizontal({
         chatlist_comp,
@@ -301,6 +322,7 @@ void App::run() {
             chatview_comp,
             input_comp,
         }),
+        commands_focus,
     });
 
     // ── Root component ──────────────────────────────────────────────────
@@ -311,13 +333,14 @@ void App::run() {
         [&, tab_index]() {
             // Check auth state
             AuthState auth_st;
-            bool show_stars, show_gifts, show_info;
+            bool show_stars, show_gifts, show_info, show_commands;
             {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 auth_st = state_.auth_state;
                 show_stars = state_.show_stars_panel;
                 show_gifts = state_.show_gifts_panel;
                 show_info = state_.show_info_panel;
+                show_commands = state_.show_commands_panel;
             }
 
             if (auth_st == AuthState::READY && mode_ == UIMode::AUTH && !auth_ready_handled) {
@@ -360,6 +383,9 @@ void App::run() {
             } else if (show_info) {
                 main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
                 main_row.push_back(info_comp->Render());
+            } else if (show_commands) {
+                main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
+                main_row.push_back(commands_comp->Render());
             }
 
             return vbox({
@@ -371,6 +397,14 @@ void App::run() {
         // Global hotkeys
         if (event == Event::F2 && mode_ == UIMode::MAIN) {
             on_command("info");
+            return true;
+        }
+        if (event == Event::F3 && mode_ == UIMode::MAIN) {
+            on_command("stars");
+            return true;
+        }
+        if (event == Event::F4 && mode_ == UIMode::MAIN) {
+            on_command("gifts");
             return true;
         }
         if (event == Event::Escape && mode_ == UIMode::MAIN) {

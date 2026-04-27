@@ -49,6 +49,7 @@ set(TGCLI_SOURCES
     src/ui/ChatList.cpp
     src/ui/ChatView.cpp
     src/ui/InputBar.cpp
+    src/ui/CommandsPanel.cpp
     src/ui/StatusBar.cpp
     src/ui/StarsPanel.cpp
     src/ui/GiftsPanel.cpp
@@ -74,11 +75,14 @@ target_link_libraries(tgcli PRIVATE
     pthread
 )
 
-# ── Install as both 'tgcli' and 'telegram' ──────────────────────────────────
+# ── Install as both 'telegram-cli' and 'telegram' ───────────────────────────
 install(TARGETS tgcli DESTINATION bin)
 
-# Create a 'telegram' symlink so the user can type 'telegram' to launch
+# Create aliases so the user can type 'telegram-cli' or 'telegram'
 install(CODE "
+    execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+        \"${CMAKE_INSTALL_PREFIX}/bin/tgcli\"
+        \"${CMAKE_INSTALL_PREFIX}/bin/telegram-cli\")
     execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
         \"${CMAKE_INSTALL_PREFIX}/bin/tgcli\"
         \"${CMAKE_INSTALL_PREFIX}/bin/telegram\")
