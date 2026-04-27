@@ -278,8 +278,7 @@ Component AuthScreen::component() {
             | color(Color::Palette256(theme.border_color))
             | size(WIDTH, LESS_THAN, 65)
             | size(HEIGHT, LESS_THAN, 35)
-            | center
-            | bgcolor(Color::Palette256(theme.chatview_bg));
+            | center;
     }) | CatchEvent([this](Event event) {
         AuthState auth_state;
         {
@@ -323,7 +322,7 @@ Component AuthScreen::component() {
                 case AuthState::WAIT_PASSWORD:
                 case AuthState::WAIT_REGISTRATION:
                     // Handled by InputOption::on_enter
-                    return true;
+                    return false;
 
                 case AuthState::READY:
                     if (on_ready_) on_ready_();
