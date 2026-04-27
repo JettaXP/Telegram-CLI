@@ -1,5 +1,6 @@
 // ── Telegram CLI — Authentication Implementation ────────────────────────────
 #include "Auth.hpp"
+#include "../app/Config.hpp"
 
 namespace tgcli {
 
@@ -37,6 +38,26 @@ void Auth::switch_to_phone_login() {
 
 void Auth::request_qr_code() {
     client_.send(td_api::make_object<td_api::requestQrCodeAuthentication>());
+}
+
+void Auth::send_tdlib_parameters() {
+    auto& cfg = Config::instance();
+    auto params = td_api::make_object<td_api::setTdlibParameters>();
+    params->use_test_dc_ = false;
+    params->database_directory_ = cfg.tdlib_data_dir;
+    params->files_directory_ = "";
+    params->database_encryption_key_ = "";
+    params->use_file_database_ = true;
+    params->use_chat_info_database_ = true;
+    params->use_message_database_ = true;
+    params->use_secret_chats_ = true;
+    params->api_id_ = cfg.api_id;
+    params->api_hash_ = cfg.api_hash;
+    params->system_language_code_ = "en";
+    params->device_model_ = "TelegramCLI";
+    params->system_version_ = "Linux";
+    params->application_version_ = "1.0.0";
+    client_.send(std::move(params));
 }
 
 void Auth::fetch_me() {

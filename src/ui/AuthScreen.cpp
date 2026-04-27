@@ -76,6 +76,28 @@ Component AuthScreen::component() {
     };
     auto input = Input(&input_text_, "", input_opt);
 
+    InputOption api_id_opt;
+    api_id_opt.on_enter = [this] {
+        { std::lock_guard<std::mutex> lock(state_.mtx); state_.auth_hint.clear(); }
+        if (!api_id_text_.empty() && !api_hash_text_.empty()) {
+            try {
+                auto& cfg = Config::instance();
+                cfg.api_id = std::stoi(api_id_text_);
+                cfg.api_hash = api_hash_text_;
+                cfg.save();
+                auth_.send_tdlib_parameters();
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                state_.auth_hint = "API ID must be a number.";
+            }
+        }
+    };
+    auto api_id_input = Input(&api_id_text_, "123456", api_id_opt);
+
+    InputOption api_hash_opt = api_id_opt;
+    api_hash_opt.password = true;
+    auto api_hash_input = Input(&api_hash_text_, "0123456789abcdef", api_hash_opt);
+
     InputOption pass_opt;
     pass_opt.password = true;
     pass_opt.on_enter = [this] {
@@ -104,12 +126,13 @@ Component AuthScreen::component() {
 
     auto tab_index = std::make_shared<int>(0);
     auto container = Container::Tab({
+        Container::Vertical({api_id_input, api_hash_input}),
         input,
         password_input,
         Container::Vertical({first_input, last_input})
     }, tab_index.get());
 
-    return Renderer(container, [this, input, password_input, first_input, last_input, tab_index]() {
+    return Renderer(container, [this, input, api_id_input, api_hash_input, password_input, first_input, last_input, tab_index]() {
         AuthState auth_state;
         std::string hint;
         std::string qr_link;
@@ -121,11 +144,18 @@ Component AuthScreen::component() {
         }
 
         switch (auth_state) {
-            case AuthState::WAIT_PASSWORD:
+            case AuthState::WAIT_TDLIB_PARAMETERS:
+                *tab_index = 0;
+                break;
+            case AuthState::WAIT_PHONE:
+            case AuthState::WAIT_CODE:
                 *tab_index = 1;
                 break;
-            case AuthState::WAIT_REGISTRATION:
+            case AuthState::WAIT_PASSWORD:
                 *tab_index = 2;
+                break;
+            case AuthState::WAIT_REGISTRATION:
+                *tab_index = 3;
                 break;
             default:
                 *tab_index = 0;
@@ -145,6 +175,29 @@ Component AuthScreen::component() {
         content.push_back(separator() | color(Color::Palette256(theme.border_color)));
 
         switch (auth_state) {
+            case AuthState::WAIT_TDLIB_PARAMETERS: {
+                content.push_back(text(""));
+                content.push_back(text(" Telegram API setup") | bold | center);
+                content.push_back(text(" Enter API ID and API hash from my.telegram.org") | dim | center);
+                if (!hint.empty()) {
+                    content.push_back(text("  " + hint) | color(Color::Palette256(196)));
+                }
+                content.push_back(text(""));
+                content.push_back(hbox({
+                    text("  API ID: ") | color(Color::Palette256(theme.accent)),
+                    api_id_input->Render() | flex | underlined,
+                }));
+                content.push_back(hbox({
+                    text(" API Hash: ") | color(Color::Palette256(theme.accent)),
+                    api_hash_input->Render() | flex | underlined,
+                }));
+                content.push_back(text(""));
+                content.push_back(text(" Press Enter to continue") | dim | center);
+                content.push_back(separator() | color(Color::Palette256(theme.border_color)));
+                content.push_back(text(" This is required only on the first login") | dim | center);
+                break;
+            }
+
             case AuthState::WAIT_QR_CODE: {
                 content.push_back(text(""));
                 content.push_back(text(" Scan QR code with your phone") | bold | center);

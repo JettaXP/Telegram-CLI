@@ -130,22 +130,27 @@ void TdClient::process_auth_state(td_api::object_ptr<td_api::AuthorizationState>
 
         if constexpr (std::is_same_v<T, td_api::authorizationStateWaitTdlibParameters>) {
             auto& cfg = Config::instance();
-            auto params = td_api::make_object<td_api::setTdlibParameters>();
-            params->use_test_dc_ = false;
-            params->database_directory_ = cfg.tdlib_data_dir;
-            params->files_directory_ = "";
-            params->database_encryption_key_ = "";
-            params->use_file_database_ = true;
-            params->use_chat_info_database_ = true;
-            params->use_message_database_ = true;
-            params->use_secret_chats_ = true;
-            params->api_id_ = cfg.api_id;
-            params->api_hash_ = cfg.api_hash;
-            params->system_language_code_ = "en";
-            params->device_model_ = "TelegramCLI";
-            params->system_version_ = "Linux";
-            params->application_version_ = "1.0.0";
-            send(std::move(params));
+            if (cfg.api_id <= 0 || cfg.api_hash.empty()) {
+                state_.auth_state = AuthState::WAIT_TDLIB_PARAMETERS;
+                state_.auth_hint = "Enter API ID and API hash from my.telegram.org";
+            } else {
+                auto params = td_api::make_object<td_api::setTdlibParameters>();
+                params->use_test_dc_ = false;
+                params->database_directory_ = cfg.tdlib_data_dir;
+                params->files_directory_ = "";
+                params->database_encryption_key_ = "";
+                params->use_file_database_ = true;
+                params->use_chat_info_database_ = true;
+                params->use_message_database_ = true;
+                params->use_secret_chats_ = true;
+                params->api_id_ = cfg.api_id;
+                params->api_hash_ = cfg.api_hash;
+                params->system_language_code_ = "en";
+                params->device_model_ = "TelegramCLI";
+                params->system_version_ = "Linux";
+                params->application_version_ = "1.0.0";
+                send(std::move(params));
+            }
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateWaitPhoneNumber>) {
             if (state_.use_qr_login) {
                 // Request QR code authentication instead of phone number
@@ -286,6 +291,13 @@ void TdClient::on_update_new_chat(td_api::updateNewChat& update) {
                 entry.is_channel = type.is_channel_;
             }
         });
+    }
+
+    if (update.chat_->permissions_) {
+        entry.can_send_messages = update.chat_->permissions_->can_send_basic_messages_;
+        entry.can_send_photos = update.chat_->permissions_->can_send_photos_;
+        entry.can_send_documents = update.chat_->permissions_->can_send_documents_;
+        entry.can_send_videos = update.chat_->permissions_->can_send_videos_;
     }
 
     // Replace if exists, otherwise push

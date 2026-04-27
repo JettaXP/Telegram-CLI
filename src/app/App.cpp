@@ -14,6 +14,9 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <thread>
 #include <iostream>
 
@@ -90,6 +93,7 @@ void App::on_auth_ready() {
 }
 
 void App::on_chat_selected(int64_t chat_id) {
+    update_composer_state(chat_id);
     // Load message history for selected chat
     std::thread([this, chat_id]() {
         {
@@ -109,6 +113,51 @@ void App::on_chat_selected(int64_t chat_id) {
         // Refresh UI
         screen_.Post(Event::Custom);
     }).detach();
+}
+
+void App::update_composer_state(int64_t chat_id) {
+    std::lock_guard<std::mutex> lock(state_.mtx);
+    state_.composer_enabled = true;
+    state_.composer_notice.clear();
+
+    for (const auto& chat : state_.chats) {
+        if (chat.id != chat_id) {
+            continue;
+        }
+
+        if (!chat.can_send_messages) {
+            state_.composer_enabled = false;
+            if (chat.is_channel) {
+                state_.composer_notice = "You can't write in this channel.";
+            } else {
+                state_.composer_notice = "You can't send messages here.";
+            }
+        }
+        break;
+    }
+}
+
+bool App::paste_clipboard_photo() {
+    if (state_.selected_chat_id == 0) {
+        return false;
+    }
+
+    auto tmp_dir = std::filesystem::temp_directory_path();
+    auto tmp_path = tmp_dir / "tgcli_clipboard_photo.png";
+    std::error_code ec;
+    std::filesystem::remove(tmp_path, ec);
+
+    std::string cmd = "kitty +kitten clipboard -g ";
+    cmd += "'" + tmp_path.string() + "'";
+    int rc = std::system(cmd.c_str());
+    if (rc != 0 || !std::filesystem::exists(tmp_path) || std::filesystem::file_size(tmp_path) == 0) {
+        std::filesystem::remove(tmp_path, ec);
+        return false;
+    }
+
+    messages_->send_photo(state_.selected_chat_id, tmp_path.string());
+    std::filesystem::remove(tmp_path, ec);
+    return true;
 }
 
 void App::on_message_send(const std::string& text) {
@@ -144,19 +193,35 @@ void App::on_command(const std::string& cmd) {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_stars_panel = !state_.show_stars_panel;
         state_.show_gifts_panel = false;
+        state_.show_info_panel = false;
+        state_.show_commands_panel = false;
     } else if (cmd == "gifts") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_gifts_panel = !state_.show_gifts_panel;
         state_.show_stars_panel = false;
+        state_.show_info_panel = false;
+        state_.show_commands_panel = false;
     } else if (cmd == "info" || cmd == "i") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_info_panel = !state_.show_info_panel;
+        state_.show_stars_panel = false;
+        state_.show_gifts_panel = false;
+        state_.show_commands_panel = false;
+    } else if (cmd == "commands" || cmd == "settings" || cmd == "config") {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        state_.show_commands_panel = !state_.show_commands_panel;
+        state_.show_info_panel = false;
+        state_.show_stars_panel = false;
+        state_.show_gifts_panel = false;
     } else if (cmd == "stars close") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_stars_panel = false;
     } else if (cmd == "gifts close") {
         std::lock_guard<std::mutex> lock(state_.mtx);
         state_.show_gifts_panel = false;
+    } else if (cmd == "commands close") {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        state_.show_commands_panel = false;
     } else if (cmd == "theme dark") {
         config_.apply_theme("dark");
         config_.theme_name = "dark";
@@ -169,9 +234,6 @@ void App::on_command(const std::string& cmd) {
         config_.apply_theme("gruvbox");
         config_.theme_name = "gruvbox";
         config_.save();
-    } else if (cmd == "settings" || cmd == "config") {
-        // Just show info how to open config
-        // In a real app this would open a settings panel
     } else if (cmd == "quit" || cmd == "q") {
         screen_.Exit();
     } else if (cmd == "logout") {
@@ -327,6 +389,10 @@ void App::run() {
                     state_.show_gifts_panel = false;
                     closed_any = true;
                 }
+                if (state_.show_commands_panel) {
+                    state_.show_commands_panel = false;
+                    closed_any = true;
+                }
             }
             if (closed_any) {
                 return true;
@@ -340,7 +406,14 @@ void App::run() {
             (event == Event::Character(';') ||
              event == Event::Special("\x1B[59;5u") ||
              event == Event::Special("\x1B[59;5;u"))) {
+            on_command("commands");
             input_comp->TakeFocus();
+            return true;
+        }
+        if (mode_ == UIMode::MAIN && event == Event::Character('\x16')) {
+            if (paste_clipboard_photo()) {
+                return true;
+            }
             return true;
         }
         if (event == Event::Character('\x03')) {

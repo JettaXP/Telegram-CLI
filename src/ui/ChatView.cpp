@@ -88,6 +88,13 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         } else {
             content_elem = media_elem;
         }
+
+        if (msg.media_type == "Photo" && !msg.media_preview.empty()) {
+            content_elem = vbox({
+                text(msg.media_preview),
+                content_elem,
+            });
+        }
     } else {
         content_elem = paragraph(msg.text)
             | color(Color::Palette256(theme.chatview_fg));
@@ -131,7 +138,10 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         msg_parts.push_back(reactions_elem);
     }
 
-    auto bubble = vbox(std::move(msg_parts));
+    auto bubble = vbox(std::move(msg_parts))
+        | border
+        | color(Color::Palette256(theme.input_border))
+        | bgcolor(Color::Palette256(theme.chatview_bg));
 
     // Outgoing messages get a slight visual distinction
     if (msg.is_outgoing) {

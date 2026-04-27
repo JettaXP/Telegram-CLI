@@ -38,7 +38,9 @@ Component ChatList::component() {
             }
         }
 
-        int max_visible = box_.y_max > 0 ? std::max(5, (box_.y_max - box_.y_min) / 3 + 1) : 40;
+        int total_height = box_.y_max > 0 ? (box_.y_max - box_.y_min) : 0;
+        int chrome = searching_ ? 4 : 3;
+        int max_visible = total_height > chrome ? std::max(1, (total_height - chrome) / 3) : 8;
         int max_scroll = std::max(0, static_cast<int>(filtered_indices.size()) - max_visible);
         if (list_scroll_ < 0) {
             list_scroll_ = 0;
@@ -134,7 +136,7 @@ Component ChatList::component() {
             auto preview_elem = text(" " + chat.last_message)
                 | dim
                 | color(Color::Palette256(theme.chatlist_fg))
-                | size(WIDTH, LESS_THAN, 24);
+                | size(WIDTH, LESS_THAN, 34);
 
             auto row = vbox({
                 hbox({

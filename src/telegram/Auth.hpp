@@ -26,6 +26,9 @@ public:
     // Request QR code login
     void request_qr_code();
 
+    // Apply TDLib parameters from config
+    void send_tdlib_parameters();
+
     // Fetch current user info after auth
     void fetch_me();
 

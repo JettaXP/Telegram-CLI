@@ -14,6 +14,33 @@ Component InfoPanel::component() {
         std::lock_guard<std::mutex> lock(state_.mtx);
         auto& theme = Config::instance().theme;
 
+        if (state_.show_commands_panel) {
+            Elements items;
+            items.push_back(hbox({
+                text(" Commands") | bold | color(Color::Palette256(theme.accent)),
+                filler(),
+                text(" ×") | dim,
+            }));
+            items.push_back(separator() | color(Color::Palette256(theme.border_color)));
+            items.push_back(text(""));
+            items.push_back(text("  Ctrl+;  Open commands") | bold);
+            items.push_back(text("  F2      Toggle info") | dim);
+            items.push_back(text("  Esc     Close panel") | dim);
+            items.push_back(text("  :info   Toggle info panel") | dim);
+            items.push_back(text("  :stars  Toggle Stars") | dim);
+            items.push_back(text("  :gifts  Toggle Gifts") | dim);
+            items.push_back(text("  :theme dark|nord|gruvbox") | dim);
+            items.push_back(text("  :logout Logout account") | dim);
+            items.push_back(text("  :quit   Exit app") | dim);
+            items.push_back(text(""));
+            items.push_back(separator() | color(Color::Palette256(theme.border_color)));
+            items.push_back(text("  Tip: Ctrl+V sends a pasted photo from clipboard") | dim);
+            items.push_back(filler());
+            return vbox(std::move(items))
+                | size(WIDTH, EQUAL, 24)
+                | bgcolor(Color::Palette256(theme.chatlist_bg));
+        }
+
         if (state_.selected_chat_id == 0) {
             return vbox({
                 hbox({
