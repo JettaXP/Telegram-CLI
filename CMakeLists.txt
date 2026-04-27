@@ -40,7 +40,7 @@ set(TGCLI_SOURCES
     src/main.cpp
     src/app/App.cpp
     src/app/Config.cpp
-    src/app/ExteraGram.cpp
+    src/app/exteraGram.cpp
     src/telegram/Client.cpp
     src/telegram/Auth.cpp
     src/telegram/Messages.cpp

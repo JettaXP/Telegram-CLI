@@ -1,7 +1,7 @@
 // ── Telegram CLI — Status Bar Implementation ────────────────────────────────
 #include "StatusBar.hpp"
 #include "../app/Config.hpp"
-#include "../app/ExteraGram.hpp"
+#include "../app/exteraGram.hpp"
 
 using namespace ftxui;
 
@@ -46,8 +46,8 @@ Element StatusBar::render() {
     }
 
     // exteraGram badge for current user
-    std::string badge_sym = ExteraGram::badge_symbol(state_, state_.current_user.id);
-    int badge_col = ExteraGram::badge_color(state_, state_.current_user.id);
+    std::string badge_sym = exteraGram::badge_symbol(state_, state_.current_user.id);
+    int badge_col = exteraGram::badge_color(state_, state_.current_user.id);
 
     auto user_section = hbox({
         text(user_display) | bold | color(Color::Palette256(theme.status_fg)),

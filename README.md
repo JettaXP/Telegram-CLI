@@ -150,7 +150,7 @@ tgcli/
 │   │   ├── App.hpp/cpp        # Main app orchestrator
 │   │   ├── Config.hpp/cpp     # Configuration management
 │   │   ├── State.hpp          # Global reactive state
-│   │   └── ExteraGram.hpp/cpp # ExteraGram API integration
+│   │   └── exteraGram.hpp/cpp # exteraGram API integration
 │   ├── telegram/
 │   │   ├── Client.hpp/cpp     # TDLib wrapper
 │   │   ├── Auth.hpp/cpp       # Authentication flow

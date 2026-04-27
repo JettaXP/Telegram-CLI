@@ -37,6 +37,9 @@ public:
     // Mark chat as read
     void mark_read(int64_t chat_id, int64_t last_message_id);
 
+    // Fetch full info for side panel (bio, username, etc)
+    void fetch_chat_full_info(int64_t chat_id);
+
     // Get user display name
     std::string get_user_name(int64_t user_id);
 

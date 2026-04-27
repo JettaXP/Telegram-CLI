@@ -66,7 +66,6 @@ void Stars::send_stars(int64_t user_id, int64_t amount) {
     // For now we send as a gift using a basic Star gift
     (void)user_id;
     (void)amount;
-    // TODO: implement when getStarGifts is available in the installed TDLib version
 }
 
 std::string Stars::get_purchase_url() {

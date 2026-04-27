@@ -17,6 +17,7 @@ public:
     ftxui::Component component();
     void set_on_send(OnSend cb) { on_send_ = cb; }
     void set_on_command(OnCommand cb) { on_command_ = cb; }
+    void set_text(const std::string& text) { input_text_ = text; }
 
 private:
     AppState& state_;

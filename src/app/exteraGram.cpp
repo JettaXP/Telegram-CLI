@@ -1,5 +1,5 @@
-// ── Telegram CLI — ExteraGram API Implementation ────────────────────────────
-#include "ExteraGram.hpp"
+// ── Telegram CLI — exteraGram API Implementation ────────────────────────────
+#include "exteraGram.hpp"
 #include "Config.hpp"
 #include <nlohmann/json.hpp>
 #include <curl/curl.h>
@@ -16,7 +16,7 @@ static size_t curl_write_cb(void* contents, size_t size, size_t nmemb, std::stri
     return total;
 }
 
-std::string ExteraGram::http_get(const std::string& url) {
+std::string exteraGram::http_get(const std::string& url) {
     std::string response;
     CURL* curl = curl_easy_init();
     if (!curl) return response;
@@ -37,7 +37,7 @@ std::string ExteraGram::http_get(const std::string& url) {
     return response;
 }
 
-std::map<int64_t, ExteraBadge> ExteraGram::parse_profiles(const std::string& json_data) {
+std::map<int64_t, ExteraBadge> exteraGram::parse_profiles(const std::string& json_data) {
     std::map<int64_t, ExteraBadge> profiles;
 
     try {
@@ -68,7 +68,7 @@ std::map<int64_t, ExteraBadge> ExteraGram::parse_profiles(const std::string& jso
     return profiles;
 }
 
-void ExteraGram::fetch_profiles(AppState& state) {
+void exteraGram::fetch_profiles(AppState& state) {
     std::string response = http_get(API_URL);
     if (response.empty()) return;
 
@@ -78,23 +78,22 @@ void ExteraGram::fetch_profiles(AppState& state) {
     state.extera_profiles = std::move(profiles);
 }
 
-bool ExteraGram::has_badge(const AppState& state, int64_t user_id) {
+bool exteraGram::has_badge(const AppState& state, int64_t user_id) {
     return state.extera_profiles.count(user_id) > 0;
 }
 
-std::string ExteraGram::badge_symbol(const AppState& state, int64_t user_id) {
+std::string exteraGram::badge_symbol(const AppState& state, int64_t user_id) {
     auto it = state.extera_profiles.find(user_id);
     if (it == state.extera_profiles.end()) return "";
 
-    // Use a Nerd Font chevron for supporters.
     if (it->second.status == "DEVELOPER") {
         return "\xE2\x9A\x99";  // gear icon ⚙
     } else {
-        return "\xEE\xAA\x9C";  // nf-cod-chevron_right 
+        return "\xE2\x9E\xA4";  // standard arrow ➤
     }
 }
 
-int ExteraGram::badge_color(const AppState& state, int64_t user_id) {
+int exteraGram::badge_color(const AppState& state, int64_t user_id) {
     auto it = state.extera_profiles.find(user_id);
     if (it == state.extera_profiles.end()) return 0;
 

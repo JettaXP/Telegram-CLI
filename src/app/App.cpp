@@ -1,6 +1,6 @@
 // ── Telegram CLI — Main Application Implementation ──────────────────────────
 #include "App.hpp"
-#include "ExteraGram.hpp"
+#include "exteraGram.hpp"
 
 #include "../ui/AuthScreen.hpp"
 #include "../ui/StatusBar.hpp"
@@ -77,12 +77,12 @@ void App::on_auth_ready() {
         on_chat_selected(chat_id);
     }
 
-    // Fetch exteraGram profiles in background
+    // Fetch profiles
     std::thread([this]() {
-        ExteraGram::fetch_profiles(state_);
+        exteraGram::fetch_profiles(state_);
     }).detach();
 
-    // Fetch Stars balance in background
+    // Fetch Stars balance
     std::thread([this]() {
         stars_->fetch_balance();
         stars_->fetch_transactions();
@@ -90,7 +90,7 @@ void App::on_auth_ready() {
 }
 
 void App::on_chat_selected(int64_t chat_id) {
-    // Load message history for selected chat
+    // Load history
     std::thread([this, chat_id]() {
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
@@ -98,7 +98,8 @@ void App::on_chat_selected(int64_t chat_id) {
             state_.scroll_offset = 0;
         }
 
-        messages_->load_history(chat_id, 100);
+        messages_->load_history(chat_id, 30);
+        messages_->fetch_chat_full_info(chat_id);
 
         // Mark as read
         std::lock_guard<std::mutex> lock(state_.mtx);
@@ -305,12 +306,31 @@ void App::run() {
                 hbox(std::move(main_row)) | flex,
             });
         }
-    ) | CatchEvent([this, input_comp](Event event) {
+    ) | CatchEvent([this, &input_bar, input_comp](Event event) {
+        // Check if any interactive component has focus
+        // In simple terms: if the input bar is focused, we don't handle single-letter hotkeys
+        bool input_focused = input_comp->Focused();
+
         // Global hotkeys
-        if (event == Event::F2 && mode_ == UIMode::MAIN) {
+        if ((event == Event::F2 || (!input_focused && event == Event::Character('i'))) && mode_ == UIMode::MAIN) {
             on_command("info");
             return true;
         }
+
+        // Colon to enter command mode
+        if (event == Event::Character(':') && mode_ == UIMode::MAIN && !input_focused) {
+            input_bar.set_text(":");
+            input_comp->TakeFocus();
+            return true;
+        }
+
+        // Ctrl+G as alternative for Ctrl+;
+        if (event == Event::Special("\x07") && mode_ == UIMode::MAIN) { // Ctrl+G
+            input_bar.set_text(":");
+            input_comp->TakeFocus();
+            return true;
+        }
+
         if (event == Event::Escape && mode_ == UIMode::MAIN) {
             bool closed_any = false;
             {
@@ -332,17 +352,7 @@ void App::run() {
                 return true;
             }
         }
-        if (event == Event::Character(':') && mode_ == UIMode::MAIN) {
-            input_comp->TakeFocus();
-            return false;
-        }
-        if (mode_ == UIMode::MAIN &&
-            (event == Event::Character(';') ||
-             event == Event::Special("\x1B[59;5u") ||
-             event == Event::Special("\x1B[59;5;u"))) {
-            input_comp->TakeFocus();
-            return true;
-        }
+        
         if (event == Event::Character('\x03')) {
             screen_.Exit();
             return true;

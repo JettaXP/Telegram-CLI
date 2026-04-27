@@ -1,7 +1,7 @@
 // ── Telegram CLI — Chat View Implementation ─────────────────────────────────
 #include "ChatView.hpp"
 #include "../app/Config.hpp"
-#include "../app/ExteraGram.hpp"
+#include "../app/exteraGram.hpp"
 
 #include <ctime>
 #include <sstream>
@@ -30,10 +30,10 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         | bold
         | color(Color::Palette256(theme.chatview_sender));
 
-    // ExteraGram badge (галочка)
+    // exteraGram badge (галочка)
     if (msg.sender_has_extera_badge) {
-        std::string badge = ExteraGram::badge_symbol(state_, msg.sender_id);
-        int badge_col = ExteraGram::badge_color(state_, msg.sender_id);
+        std::string badge = exteraGram::badge_symbol(state_, msg.sender_id);
+        int badge_col = exteraGram::badge_color(state_, msg.sender_id);
         sender_elem = hbox({
             sender_elem,
             text(" " + badge) | color(Color::Palette256(badge_col)),
@@ -223,7 +223,6 @@ Component ChatView::component() {
         return vbox({
             header,
             separator() | color(Color::Palette256(theme.border_color)),
-            filler(), // Pushes messages to the bottom
             messages_view,
             footer,
         }) | flex | reflect(box_);

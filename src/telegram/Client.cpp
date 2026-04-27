@@ -251,7 +251,7 @@ void TdClient::on_update_new_message(td_api::updateNewMessage& update) {
             });
         }
 
-        // ExteraGram badge check
+        // exteraGram badge check
         entry.sender_has_extera_badge = state_.is_extera_supporter(entry.sender_id);
         entry.sender_extera_status = state_.extera_status(entry.sender_id);
 

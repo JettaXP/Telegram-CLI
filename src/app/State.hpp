@@ -17,7 +17,7 @@ enum class ConnectionStatus {
     OFFLINE
 };
 
-// ── ExteraGram badge info ───────────────────────────────────────────────────
+// ── exteraGram badge info ───────────────────────────────────────────────────
 struct ExteraBadge {
     std::string status;   // "SUPPORTER", "DEVELOPER"
     int64_t document_id = 0;
@@ -84,7 +84,7 @@ struct UserInfo {
     bool is_premium = false;
     std::string status;   // "online", "offline", "recently", etc.
 
-    // ExteraGram
+    // exteraGram
     bool has_extera_badge = false;
     ExteraBadge extera_badge;
 };
@@ -123,9 +123,21 @@ enum class AuthState {
     CLOSED
 };
 
+struct ChatFullInfo {
+    int64_t id = 0;
+    std::string bio;
+    std::string username;
+    std::string phone;
+    std::string description; // for groups/channels
+    int32_t member_count = 0;
+};
+
 // ── Main state container ────────────────────────────────────────────────────
 struct AppState {
     mutable std::mutex mtx;
+
+    // Selected Chat Details
+    ChatFullInfo selected_chat_details;
 
     // Auth
     AuthState auth_state = AuthState::NONE;
@@ -156,7 +168,7 @@ struct AppState {
     std::vector<GiftEntry> available_gifts;
     std::vector<GiftEntry> saved_gifts;
 
-    // ExteraGram profiles cache
+    // exteraGram profiles cache
     std::map<int64_t, ExteraBadge> extera_profiles;
 
     // UI state

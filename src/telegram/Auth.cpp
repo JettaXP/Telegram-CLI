@@ -31,8 +31,6 @@ void Auth::switch_to_phone_login() {
         state.qr_code_link.clear();
         state.auth_state = AuthState::WAIT_PHONE;
     }
-    // Request phone number auth explicitly
-    // This has no side effect if already in WAIT_PHONE; it just sets the UI
 }
 
 void Auth::request_qr_code() {

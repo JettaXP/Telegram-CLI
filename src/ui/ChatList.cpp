@@ -1,7 +1,7 @@
 // ── Telegram CLI — Chat List Implementation ─────────────────────────────────
 #include "ChatList.hpp"
 #include "../app/Config.hpp"
-#include "../app/ExteraGram.hpp"
+#include "../app/exteraGram.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -162,10 +162,11 @@ Component ChatList::component() {
             }) | bgcolor(Color::Palette256(theme.chatlist_bg))
         );
 
-        items.push_back(filler() | bgcolor(Color::Palette256(theme.chatlist_bg)));
+        items.push_back(filler() | flex | bgcolor(Color::Palette256(theme.chatlist_bg)));
 
         return vbox(std::move(items))
             | size(WIDTH, EQUAL, 28)
+            | flex
             | bgcolor(Color::Palette256(theme.chatlist_bg))
             | reflect(box_);
     }) | CatchEvent([this, search_input](Event event) {

@@ -187,7 +187,7 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
             });
         }
 
-        // ExteraGram badge
+        // exteraGram badge
         entry.sender_has_extera_badge = state.is_extera_supporter(entry.sender_id);
         entry.sender_extera_status = state.extera_status(entry.sender_id);
 
@@ -273,6 +273,56 @@ void Messages::mark_read(int64_t chat_id, int64_t last_message_id) {
     client_.send(td_api::make_object<td_api::viewMessages>(
         chat_id, std::move(msg_ids), nullptr, true
     ));
+}
+
+void Messages::fetch_chat_full_info(int64_t chat_id) {
+    auto& state = client_.state();
+    
+    {
+        std::lock_guard<std::mutex> lock(state.mtx);
+        state.selected_chat_details = ChatFullInfo{};
+        state.selected_chat_details.id = chat_id;
+    }
+
+    auto chat_res = client_.send_sync(td_api::make_object<td_api::getChat>(chat_id), 3);
+    if (!chat_res || chat_res->get_id() != td_api::chat::ID) return;
+    auto& chat = static_cast<td_api::chat&>(*chat_res);
+
+    if (chat.type_->get_id() == td_api::chatTypePrivate::ID) {
+        auto& priv = static_cast<td_api::chatTypePrivate&>(*chat.type_);
+        int64_t user_id = priv.user_id_;
+
+        auto user_res = client_.send_sync(td_api::make_object<td_api::getUser>(user_id), 3);
+        if (user_res && user_res->get_id() == td_api::user::ID) {
+            auto& user = static_cast<td_api::user&>(*user_res);
+            std::lock_guard<std::mutex> lock(state.mtx);
+            if (user.usernames_) state.selected_chat_details.username = user.usernames_->editable_username_;
+            state.selected_chat_details.phone = user.phone_number_;
+        }
+
+        auto full_res = client_.send_sync(td_api::make_object<td_api::getUserFullInfo>(user_id), 3);
+        if (full_res && full_res->get_id() == td_api::userFullInfo::ID) {
+            auto& full = static_cast<td_api::userFullInfo&>(*full_res);
+            std::lock_guard<std::mutex> lock(state.mtx);
+            if (full.bio_) state.selected_chat_details.bio = full.bio_->text_;
+        }
+    } else if (chat.type_->get_id() == td_api::chatTypeBasicGroup::ID) {
+        auto& group = static_cast<td_api::chatTypeBasicGroup&>(*chat.type_);
+        auto full_res = client_.send_sync(td_api::make_object<td_api::getBasicGroupFullInfo>(group.basic_group_id_), 3);
+        if (full_res && full_res->get_id() == td_api::basicGroupFullInfo::ID) {
+            auto& full = static_cast<td_api::basicGroupFullInfo&>(*full_res);
+            std::lock_guard<std::mutex> lock(state.mtx);
+            state.selected_chat_details.description = full.description_;
+        }
+    } else if (chat.type_->get_id() == td_api::chatTypeSupergroup::ID) {
+        auto& group = static_cast<td_api::chatTypeSupergroup&>(*chat.type_);
+        auto full_res = client_.send_sync(td_api::make_object<td_api::getSupergroupFullInfo>(group.supergroup_id_), 3);
+        if (full_res && full_res->get_id() == td_api::supergroupFullInfo::ID) {
+            auto& full = static_cast<td_api::supergroupFullInfo&>(*full_res);
+            std::lock_guard<std::mutex> lock(state.mtx);
+            state.selected_chat_details.description = full.description_;
+        }
+    }
 }
 
 std::string Messages::get_user_name(int64_t user_id) {

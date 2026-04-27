@@ -1,5 +1,5 @@
 #pragma once
-// ── Telegram CLI — ExteraGram API Integration ───────────────────────────────
+// ── Telegram CLI — exteraGram API Integration ───────────────────────────────
 // Fetches supporter/developer profiles from https://api.exteragram.app/api/v1/profiles
 // and caches them for badge display next to usernames.
 
@@ -10,12 +10,12 @@
 
 namespace tgcli {
 
-class ExteraGram {
+class exteraGram {
 public:
     // Fetch all profiles from the API and populate the state cache
     static void fetch_profiles(AppState& state);
 
-    // Check if a user ID has an ExteraGram badge
+    // Check if a user ID has an exteraGram badge
     static bool has_badge(const AppState& state, int64_t user_id);
 
     // Get the badge symbol to display (Nerd Font icons)
