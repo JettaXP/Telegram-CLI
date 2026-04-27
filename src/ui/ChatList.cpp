@@ -131,6 +131,63 @@ Component ChatList::component() {
             | size(WIDTH, EQUAL, 28)
             | bgcolor(Color::Palette256(theme.chatlist_bg));
     }) | CatchEvent([this](Event event) {
+        // Handle mouse clicks
+        if (event.is_mouse()) {
+            if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Pressed) {
+                // Approximate row height (3 lines per chat: 2 for text, 1 for separator)
+                // The list starts at Y=3 (header + separator). If search is active, starts at Y=4.
+                int start_y = searching_ ? 4 : 3;
+                int click_y = event.mouse().y - 1; // event.mouse.y is 1-based, but we consider local relative
+                
+                // Let's just allow clicking ANYWHERE in the chatlist to select if we have accurate bounds
+                // A better approach is calculating the index directly if we assume static heights
+                // Each chat is 3 rows.
+                // We'll rely on global UI coordinates if possible, but FTXUI doesn't pass local coords easily.
+                // For a robust CLI, mouse click is handled globally by giving each chat an FTXUI Menu or Button.
+                // But for now, we'll implement simple navigation if they scroll the mouse wheel:
+            }
+            if (event.mouse().button == Mouse::WheelDown) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) {
+                    state_.selected_chat_index++;
+                    if (on_select_) on_select_(state_.chats[state_.selected_chat_index].id);
+                }
+                return true;
+            }
+            if (event.mouse().button == Mouse::WheelUp) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                if (state_.selected_chat_index > 0) {
+                    state_.selected_chat_index--;
+                    if (on_select_) on_select_(state_.chats[state_.selected_chat_index].id);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // If searching, let input handle printable characters (except Esc and Enter)
+        if (searching_) {
+            if (event == Event::Escape) {
+                searching_ = false;
+                search_text_.clear();
+                return true;
+            }
+            if (event == Event::Return) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                // When we press enter in search, we might just want to select the top match
+                if (!state_.chats.empty()) {
+                    // For now, just exit search mode
+                    searching_ = false;
+                }
+                return true;
+            }
+            if (event == Event::ArrowUp || event == Event::ArrowDown) {
+                // allow arrows to navigate even while searching
+            } else {
+                return false; // let search_input handle 'j', 'k', etc.
+            }
+        }
+
         // Keyboard navigation
         if (event == Event::ArrowDown || event == Event::Character('j')) {
             std::lock_guard<std::mutex> lock(state_.mtx);

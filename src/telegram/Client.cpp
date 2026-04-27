@@ -99,6 +99,8 @@ void TdClient::process_update(td_api::object_ptr<td_api::Object> update) {
             process_auth_state(std::move(obj.authorization_state_));
         } else if constexpr (std::is_same_v<T, td_api::updateNewMessage>) {
             on_update_new_message(obj);
+        } else if constexpr (std::is_same_v<T, td_api::updateNewChat>) {
+            on_update_new_chat(obj);
         } else if constexpr (std::is_same_v<T, td_api::updateChatLastMessage>) {
             on_update_chat_last_message(obj);
         } else if constexpr (std::is_same_v<T, td_api::updateChatPosition>) {
@@ -169,6 +171,8 @@ void TdClient::process_auth_state(td_api::object_ptr<td_api::AuthorizationState>
             state_.auth_state = AuthState::WAIT_REGISTRATION;
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateReady>) {
             state_.auth_state = AuthState::READY;
+            // Fetch main chat list
+            send(td_api::make_object<td_api::loadChats>(td_api::make_object<td_api::chatListMain>(), 100));
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateLoggingOut>) {
             state_.auth_state = AuthState::LOGGING_OUT;
         } else if constexpr (std::is_same_v<T, td_api::authorizationStateClosed>) {
@@ -253,6 +257,49 @@ void TdClient::on_update_new_message(td_api::updateNewMessage& update) {
 
         state_.messages.push_back(std::move(entry));
     }
+}
+
+void TdClient::on_update_new_chat(td_api::updateNewChat& update) {
+    if (!update.chat_) return;
+    std::lock_guard<std::mutex> lock(state_.mtx);
+    ChatEntry entry;
+    entry.id = update.chat_->id_;
+    entry.title = update.chat_->title_;
+    entry.unread_count = update.chat_->unread_count_;
+    for (const auto& pos : update.chat_->positions_) {
+        if (pos && pos->list_ && pos->list_->get_id() == td_api::chatListMain::ID) {
+            entry.order = pos->order_;
+            entry.is_pinned = pos->is_pinned_;
+        }
+    }
+    
+    // Check type
+    if (update.chat_->type_) {
+        td_api::downcast_call(*update.chat_->type_, [&entry](auto& type) {
+            using T = std::decay_t<decltype(type)>;
+            if constexpr (std::is_same_v<T, td_api::chatTypePrivate>) {
+                entry.is_private = true;
+            } else if constexpr (std::is_same_v<T, td_api::chatTypeBasicGroup>) {
+                entry.is_group = true;
+            } else if constexpr (std::is_same_v<T, td_api::chatTypeSupergroup>) {
+                entry.is_group = !type.is_channel_;
+                entry.is_channel = type.is_channel_;
+            }
+        });
+    }
+
+    // Replace if exists, otherwise push
+    auto it = std::find_if(state_.chats.begin(), state_.chats.end(), [&](const auto& c){ return c.id == entry.id; });
+    if (it != state_.chats.end()) {
+        *it = std::move(entry);
+    } else {
+        state_.chats.push_back(std::move(entry));
+    }
+    
+    std::sort(state_.chats.begin(), state_.chats.end(), [](const ChatEntry& a, const ChatEntry& b) {
+        if (a.is_pinned != b.is_pinned) return a.is_pinned > b.is_pinned;
+        return a.order > b.order;
+    });
 }
 
 void TdClient::on_update_chat_last_message(td_api::updateChatLastMessage& update) {

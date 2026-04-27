@@ -48,6 +48,7 @@ private:
 
     // Handle specific update types
     void on_update_new_message(td_api::updateNewMessage& update);
+    void on_update_new_chat(td_api::updateNewChat& update);
     void on_update_chat_last_message(td_api::updateChatLastMessage& update);
     void on_update_chat_position(td_api::updateChatPosition& update);
     void on_update_chat_read_inbox(td_api::updateChatReadInbox& update);
