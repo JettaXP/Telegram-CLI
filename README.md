@@ -39,7 +39,21 @@ A full-featured Telegram client for Linux terminals, built in C++ using **TDLib*
 - libcurl
 - JetBrains Mono Nerd Font (for proper icon display)
 
-## Quick Start
+## Installation
+
+### Method 1: Install Pre-built Binary (Recommended)
+Once a release is published on GitHub, you can install the latest version system-wide using our script:
+
+```bash
+curl -sL https://raw.githubusercontent.com/JettaXP/Telegram-CLI/main/install.sh | sudo bash
+```
+
+After installation, just run:
+```bash
+tgcli
+```
+
+### Method 2: Build from Source
 
 ```bash
 # 1. Install system dependencies
@@ -55,8 +69,11 @@ mkdir -p build && cd build
 cmake .. -DTd_DIR=$(pwd)/../deps/td-install/lib/cmake/Td
 make -j$(nproc)
 
-# 4. Run
-./tgcli
+# 4. Install system-wide
+sudo make install
+
+# 5. Run from anywhere
+tgcli
 ```
 
 ## Keyboard Shortcuts
