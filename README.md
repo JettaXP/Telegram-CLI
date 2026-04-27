@@ -84,7 +84,7 @@ tgcli
 | `k` / `↑` | Navigate up in chat list |
 | `Enter` | Select chat / Send message |
 | `/` | Toggle search in chat list |
-| `i` | Toggle info panel |
+| `F2` | Toggle info panel |
 | `r` | Reply to last message |
 | `e` | Edit last outgoing message |
 | `d` | Delete last message |

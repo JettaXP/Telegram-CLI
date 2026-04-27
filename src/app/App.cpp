@@ -285,12 +285,7 @@ void App::run() {
         }
     ) | CatchEvent([this](Event event) {
         // Global hotkeys
-        if (event == Event::Character('q') && mode_ == UIMode::MAIN) {
-            // Only quit with 'q' if not in input mode — for safety
-            // we handle this via :quit command instead
-            return false;
-        }
-        if (event == Event::Character('i') && mode_ == UIMode::MAIN) {
+        if (event == Event::F2 && mode_ == UIMode::MAIN) {
             on_command("info");
             return true;
         }

@@ -21,6 +21,8 @@ private:
     OnChatSelect on_select_;
     std::string search_text_;
     bool searching_ = false;
+    ftxui::Box box_;
+    std::vector<std::pair<int, int64_t>> visible_chat_ids_;
 };
 
 } // namespace tgcli::ui

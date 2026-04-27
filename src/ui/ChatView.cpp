@@ -183,7 +183,7 @@ Component ChatView::component() {
             text(" "),
             text(chat_title) | bold | color(Color::Palette256(theme.chatview_sender)),
             filler(),
-            text(" [i] Info ") | dim,
+            text(" [F2] Info ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
 
         // Messages

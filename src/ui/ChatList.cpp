@@ -41,14 +41,22 @@ Component ChatList::component() {
 
         items.push_back(separator() | color(Color::Palette256(theme.border_color)));
 
+        // Manual scroll window
+        int max_visible = 15; // approximate number of chats that fit
+        int start_idx = std::max(0, state_.selected_chat_index - max_visible / 2);
+
         // Chat entries
         int idx = 0;
+        int rendered = 0;
+        
+        // We'll store the mapping of visual row to actual chat_id for mouse clicks
+        visible_chat_ids_.clear();
+
         for (const auto& chat : state_.chats) {
             // Search filter
             if (searching_ && !search_text_.empty()) {
                 std::string lower_title = chat.title;
                 std::string lower_search = search_text_;
-                // Simple case-insensitive search
                 std::transform(lower_title.begin(), lower_title.end(), lower_title.begin(), ::tolower);
                 std::transform(lower_search.begin(), lower_search.end(), lower_search.begin(), ::tolower);
                 if (lower_title.find(lower_search) == std::string::npos) {
@@ -57,29 +65,40 @@ Component ChatList::component() {
                 }
             }
 
+            if (rendered < start_idx) {
+                rendered++;
+                idx++;
+                continue;
+            }
+            if (visible_chat_ids_.size() >= static_cast<size_t>(max_visible)) {
+                break;
+            }
+
+            visible_chat_ids_.push_back({idx, chat.id});
+
             bool selected = (idx == state_.selected_chat_index);
 
-            // Chat type icon (Nerd Font)
+            // Chat type icon
             std::string icon;
             int icon_color = theme.chatlist_fg;
             if (chat.is_channel) {
-                icon = "\xEF\x81\xA8 "; // nf-fa-bullhorn
+                icon = "\xE2\x9A\xA1 "; // ⚡
                 icon_color = theme.chatlist_channel;
             } else if (chat.is_group) {
-                icon = "\xEF\x83\x80 "; // nf-fa-users
+                icon = "\xE2\x9C\xAA "; // ✪
                 icon_color = theme.chatlist_group;
             } else if (chat.is_bot) {
-                icon = "\xEF\x84\xA4 "; // nf-fa-robot
+                icon = "\xE2\x9A\x99 "; // ⚙
                 icon_color = theme.chatlist_bot;
             } else {
-                icon = "\xEF\x80\x87 "; // nf-fa-user
+                icon = "\xE2\x98\xBA "; // ☺
                 icon_color = theme.chatlist_fg;
             }
 
             // Pin indicator
-            std::string pin = chat.is_pinned ? "\xEF\x82\x8D " : ""; // nf-fa-thumb-tack
+            std::string pin = chat.is_pinned ? "\xE2\x9C\xAF " : ""; // ✮
 
-            // Title with ExteraGram badge
+            // Title
             auto title_elem = hbox({
                 text(icon) | color(Color::Palette256(icon_color)),
                 text(chat.title) | bold | color(Color::Palette256(
@@ -92,8 +111,8 @@ Component ChatList::component() {
             if (chat.unread_count > 0) {
                 unread_elem = text(" " + std::to_string(chat.unread_count) + " ")
                     | bold
-                    | color(Color::Palette256(0))               // black text
-                    | bgcolor(Color::Palette256(theme.chatlist_unread)); // orange bg
+                    | color(Color::Palette256(0))
+                    | bgcolor(Color::Palette256(theme.chatlist_unread));
             }
 
             // Last message preview
@@ -122,6 +141,8 @@ Component ChatList::component() {
 
             items.push_back(row);
             items.push_back(separator() | dim | color(Color::Palette256(theme.border_color)));
+            
+            rendered++;
             idx++;
         }
 
@@ -130,19 +151,25 @@ Component ChatList::component() {
 
         return vbox(std::move(items))
             | size(WIDTH, EQUAL, 28)
-            | bgcolor(Color::Palette256(theme.chatlist_bg));
+            | bgcolor(Color::Palette256(theme.chatlist_bg))
+            | reflect(box_);
     }) | CatchEvent([this](Event event) {
         // Handle mouse clicks
         if (event.is_mouse()) {
+            if (!box_.Contain(event.mouse().x, event.mouse().y)) {
+                return false; // let other components handle mouse!
+            }
+
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Pressed) {
-                int start_y = searching_ ? 4 : 3;
-                int click_y = event.mouse().y - 1; // approximate local Y
-                if (click_y >= start_y) {
-                    int clicked_idx = (click_y - start_y) / 3;
+                int start_y = searching_ ? 3 : 2; // header(1) + search(1)? + sep(1)
+                int local_y = event.mouse().y - box_.y_min;
+                
+                if (local_y >= start_y) {
+                    int clicked_visual_idx = (local_y - start_y) / 3;
                     std::lock_guard<std::mutex> lock(state_.mtx);
-                    if (clicked_idx >= 0 && clicked_idx < static_cast<int>(state_.chats.size())) {
-                        state_.selected_chat_index = clicked_idx;
-                        state_.selected_chat_id = state_.chats[clicked_idx].id;
+                    if (clicked_visual_idx >= 0 && clicked_visual_idx < static_cast<int>(visible_chat_ids_.size())) {
+                        state_.selected_chat_index = visible_chat_ids_[clicked_visual_idx].first;
+                        state_.selected_chat_id = visible_chat_ids_[clicked_visual_idx].second;
                         if (on_select_) on_select_(state_.selected_chat_id);
                     }
                 }
@@ -162,7 +189,7 @@ Component ChatList::component() {
                 }
                 return true;
             }
-            return false;
+            return true; // We consumed the mouse event inside our box
         }
 
         // If searching, let input handle printable characters (except Esc and Enter)
