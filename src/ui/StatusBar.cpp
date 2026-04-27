@@ -45,7 +45,7 @@ Element StatusBar::render() {
         user_display += " " + state_.current_user.last_name;
     }
 
-    // ExteraGram badge for current user
+    // exteraGram badge for current user
     std::string badge_sym = ExteraGram::badge_symbol(state_, state_.current_user.id);
     int badge_col = ExteraGram::badge_color(state_, state_.current_user.id);
 
@@ -53,7 +53,7 @@ Element StatusBar::render() {
         text(user_display) | bold | color(Color::Palette256(theme.status_fg)),
     });
 
-    // Add ExteraGram badge if user has one
+    // Add exteraGram badge if user has one
     if (!badge_sym.empty()) {
         user_section = hbox({
             text(user_display) | bold | color(Color::Palette256(theme.status_fg)),

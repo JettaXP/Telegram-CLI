@@ -372,8 +372,8 @@ void TdClient::on_update_user(td_api::updateUser& update) {
 
     // Check if this is our own user
     std::lock_guard<std::mutex> lock(state_.mtx);
-    if (update.user_->id_ == state_.current_user.id || state_.current_user.id == 0) {
-        // We'll set current user in Auth after getting getMe
+    if (update.user_->id_ == state_.current_user.id && state_.current_user.id != 0) {
+        state_.current_user.id = update.user_->id_;
     }
 }
 

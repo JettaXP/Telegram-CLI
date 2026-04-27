@@ -93,12 +93,15 @@ tgcli
 | `Esc` | Cancel reply/edit |
 | `Ctrl+C` | Quit |
 
+*Mouse is also supported for scrolling the chat list and message history!*
+
 ## Commands
 
 Type in the message input bar (prefix with `:`):
 
 | Command | Action |
 |---------|--------|
+| `:settings` | Information about config location |
 | `:stars` | Toggle Stars balance panel |
 | `:gifts` | Toggle Gifts & NFT panel |
 | `:info` | Toggle info panel |
@@ -109,9 +112,15 @@ Type in the message input bar (prefix with `:`):
 | `:logout` | Log out of Telegram |
 | `:quit` | Exit the app |
 
-## ExteraGram Integration
+## Media Support
 
-This client integrates with the [ExteraGram](https://exteragram.app) API to show supporter and developer badges next to usernames. The badges are fetched from `https://api.exteragram.app/api/v1/profiles` and cached locally.
+- **Images & Photos:** To view images directly in your terminal, use a terminal emulator that supports advanced graphics protocols (like **Kitty**, **WezTerm**, or **iTerm2**).
+- **Videos:** Video playback inside the terminal is possible using ASCII/block character rendering via **Chafa**. Make sure `chafa` is installed on your system.
+*(Note: Full media integration is currently in experimental development.)*
+
+## exteraGram Integration
+
+This client integrates with the [exteraGram](https://exteragram.app) API to show supporter and developer badges next to usernames. The badges are fetched from `https://api.exteragram.app/api/v1/profiles` and cached locally.
 
 - **Supporters** get a  (checkmark) badge in cyan
 - **Developers** get a  (wrench) badge in gold

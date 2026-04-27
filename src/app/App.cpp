@@ -63,7 +63,7 @@ void App::on_auth_ready() {
     // Load chats
     messages_->load_chats(50);
 
-    // Fetch ExteraGram profiles in background
+    // Fetch exteraGram profiles in background
     std::thread([this]() {
         ExteraGram::fetch_profiles(state_);
     }).detach();
@@ -78,6 +78,12 @@ void App::on_auth_ready() {
 void App::on_chat_selected(int64_t chat_id) {
     // Load message history for selected chat
     std::thread([this, chat_id]() {
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            state_.messages.clear();
+            state_.scroll_offset = 0;
+        }
+
         messages_->load_history(chat_id, 30);
 
         // Mark as read
@@ -149,6 +155,9 @@ void App::on_command(const std::string& cmd) {
         config_.apply_theme("gruvbox");
         config_.theme_name = "gruvbox";
         config_.save();
+    } else if (cmd == "settings" || cmd == "config") {
+        // Just show info how to open config
+        // In a real app this would open a settings panel
     } else if (cmd == "quit" || cmd == "q") {
         screen_.Exit();
     } else if (cmd == "logout") {
@@ -219,8 +228,10 @@ void App::run() {
     });
 
     // ── Root component ──────────────────────────────────────────────────
-    auto root = Renderer(Container::Tab({auth_component, main_container}, nullptr),
-        [&]() {
+    auto tab_index = std::make_shared<int>(0);
+
+    auto root = Renderer(Container::Tab({auth_component, main_container}, tab_index.get()),
+        [&, tab_index]() {
             // Check auth state
             AuthState auth_st;
             bool show_stars, show_gifts, show_info;
@@ -233,7 +244,11 @@ void App::run() {
             }
 
             if (auth_st != AuthState::READY && mode_ == UIMode::AUTH) {
+                *tab_index = 0;
                 return auth_component->Render();
+            } else {
+                mode_ = UIMode::MAIN;
+                *tab_index = 1;
             }
 
             // ── Main layout ─────────────────────────────────────────────

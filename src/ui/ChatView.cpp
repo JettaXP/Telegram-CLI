@@ -183,13 +183,15 @@ Component ChatView::component() {
             text(" "),
             text(chat_title) | bold | color(Color::Palette256(theme.chatview_sender)),
             filler(),
+            text(" [i] Info ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
 
         // Messages
         Elements msg_elements;
         int total = static_cast<int>(state_.messages.size());
-        int start = std::max(0, total - 50 + state_.scroll_offset); // Show last 50 messages
-        int end = total;
+        int view_size = 50;
+        int start = std::max(0, total - view_size + state_.scroll_offset);
+        int end = std::min(total, start + view_size);
 
         for (int i = start; i < end; i++) {
             bool selected = (i == selected_msg_index_);
@@ -211,13 +213,28 @@ Component ChatView::component() {
             header,
             separator() | color(Color::Palette256(theme.border_color)),
             messages_view,
-        }) | flex | bgcolor(Color::Palette256(theme.chatview_bg));
+        }) | flex;
     }) | CatchEvent([this](Event event) {
+        // Handle mouse wheel for messages
+        if (event.is_mouse()) {
+            if (event.mouse().button == Mouse::WheelUp) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                int total = static_cast<int>(state_.messages.size());
+                state_.scroll_offset = std::max(state_.scroll_offset - 5, -total);
+                return true;
+            }
+            if (event.mouse().button == Mouse::WheelDown) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                state_.scroll_offset = std::min(state_.scroll_offset + 5, 0);
+                return true;
+            }
+        }
+        
         // Scroll
         if (event == Event::PageUp) {
             std::lock_guard<std::mutex> lock(state_.mtx);
-            state_.scroll_offset = std::max(state_.scroll_offset - 10,
-                -static_cast<int>(state_.messages.size()));
+            int total = static_cast<int>(state_.messages.size());
+            state_.scroll_offset = std::max(state_.scroll_offset - 10, -total);
             return true;
         }
         if (event == Event::PageDown) {

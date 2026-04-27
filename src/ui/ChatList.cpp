@@ -11,8 +11,9 @@ ChatList::ChatList(AppState& state) : state_(state) {}
 
 Component ChatList::component() {
     auto search_input = Input(&search_text_, "Search...");
+    auto search_maybe = Maybe(search_input, &searching_);
 
-    return Renderer(search_input, [this, search_input]() {
+    return Renderer(search_maybe, [this, search_input]() {
         std::lock_guard<std::mutex> lock(state_.mtx);
         auto& theme = Config::instance().theme;
 
@@ -134,23 +135,23 @@ Component ChatList::component() {
         // Handle mouse clicks
         if (event.is_mouse()) {
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Pressed) {
-                // Approximate row height (3 lines per chat: 2 for text, 1 for separator)
-                // The list starts at Y=3 (header + separator). If search is active, starts at Y=4.
                 int start_y = searching_ ? 4 : 3;
-                int click_y = event.mouse().y - 1; // event.mouse.y is 1-based, but we consider local relative
-                
-                // Let's just allow clicking ANYWHERE in the chatlist to select if we have accurate bounds
-                // A better approach is calculating the index directly if we assume static heights
-                // Each chat is 3 rows.
-                // We'll rely on global UI coordinates if possible, but FTXUI doesn't pass local coords easily.
-                // For a robust CLI, mouse click is handled globally by giving each chat an FTXUI Menu or Button.
-                // But for now, we'll implement simple navigation if they scroll the mouse wheel:
+                int click_y = event.mouse().y - 1; // approximate local Y
+                if (click_y >= start_y) {
+                    int clicked_idx = (click_y - start_y) / 3;
+                    std::lock_guard<std::mutex> lock(state_.mtx);
+                    if (clicked_idx >= 0 && clicked_idx < static_cast<int>(state_.chats.size())) {
+                        state_.selected_chat_index = clicked_idx;
+                        state_.selected_chat_id = state_.chats[clicked_idx].id;
+                        if (on_select_) on_select_(state_.selected_chat_id);
+                    }
+                }
+                return true;
             }
             if (event.mouse().button == Mouse::WheelDown) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) {
                     state_.selected_chat_index++;
-                    if (on_select_) on_select_(state_.chats[state_.selected_chat_index].id);
                 }
                 return true;
             }
@@ -158,7 +159,6 @@ Component ChatList::component() {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 if (state_.selected_chat_index > 0) {
                     state_.selected_chat_index--;
-                    if (on_select_) on_select_(state_.chats[state_.selected_chat_index].id);
                 }
                 return true;
             }

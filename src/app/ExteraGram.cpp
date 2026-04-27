@@ -86,11 +86,11 @@ std::string ExteraGram::badge_symbol(const AppState& state, int64_t user_id) {
     auto it = state.extera_profiles.find(user_id);
     if (it == state.extera_profiles.end()) return "";
 
-    // Nerd Font symbols (JetBrains Mono Nerd Font)
+    // Use standard unicode so it renders without Nerd Fonts
     if (it->second.status == "DEVELOPER") {
-        return "\xEF\x82\xAD";  //  nf-fa-wrench (developer badge)
+        return "\xE2\x9A\x99";  // gear icon ⚙
     } else {
-        return "\xEF\x80\x8C";  //  nf-fa-check (supporter badge / галочка)
+        return "\xE2\x9C\x93";  // checkmark ✓
     }
 }
 
