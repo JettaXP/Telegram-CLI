@@ -69,7 +69,11 @@ void TdClient::event_loop() {
                     auto& err = static_cast<td_api::error&>(*response.object);
                     {
                         std::lock_guard<std::mutex> st_lock(state_.mtx);
-                        state_.auth_hint = err.message_;
+                        if (err.message_ == "PASSWORD_HASH_INVALID") {
+                            state_.auth_hint = "Incorrect password! Please try again.";
+                        } else {
+                            state_.auth_hint = err.message_;
+                        }
                     }
                     if (update_callback_) {
                         update_callback_();
