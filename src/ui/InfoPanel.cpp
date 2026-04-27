@@ -16,7 +16,11 @@ Component InfoPanel::component() {
 
         if (state_.selected_chat_id == 0) {
             return vbox({
-                text(" Info") | bold | color(Color::Palette256(theme.accent)),
+                hbox({
+                    text(" Info") | bold | color(Color::Palette256(theme.accent)),
+                    filler(),
+                    text(" ×") | dim,
+                }),
                 separator(),
                 text("  No chat selected") | dim,
                 filler(),
@@ -35,7 +39,11 @@ Component InfoPanel::component() {
 
         if (!chat) {
             return vbox({
-                text(" Info") | bold,
+                hbox({
+                    text(" Info") | bold,
+                    filler(),
+                    text(" ×") | dim,
+                }),
                 text("  Loading...") | dim,
                 filler(),
             }) | size(WIDTH, EQUAL, 24)
@@ -43,7 +51,11 @@ Component InfoPanel::component() {
         }
 
         Elements info_items;
-        info_items.push_back(text(" Info") | bold | color(Color::Palette256(theme.accent)));
+        info_items.push_back(hbox({
+            text(" Info") | bold | color(Color::Palette256(theme.accent)),
+            filler(),
+            text(" ×") | dim,
+        }));
         info_items.push_back(separator() | color(Color::Palette256(theme.border_color)));
 
         // Chat type icon
@@ -96,7 +108,7 @@ Component InfoPanel::component() {
         info_items.push_back(text("   :stars  View Stars") | dim);
         info_items.push_back(text("   :gifts  View Gifts") | dim);
         info_items.push_back(text("   :mute   Mute Chat") | dim);
-        info_items.push_back(text("   F2      Toggle panel") | dim);
+        info_items.push_back(text("   F2 / Esc Close panel") | dim);
 
         info_items.push_back(filler());
 

@@ -5,6 +5,12 @@ set -euo pipefail
 REPO="JettaXP/Telegram-CLI"
 BIN_NAME="tgcli"
 INSTALL_DIR="/usr/local/bin"
+TMP_DIR="$(mktemp -d)"
+
+cleanup() {
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
 
 echo "╔══════════════════════════════════════════════╗"
 echo "║       Telegram CLI — Installer               ║"
@@ -12,7 +18,7 @@ echo "╚═══════════════════════�
 echo ""
 
 echo "[*] Fetching the latest release..."
-LATEST_URL=$(curl -s https://api.github.com/repos/$REPO/releases/latest | grep "browser_download_url" | grep "$BIN_NAME" | cut -d '"' -f 4 | head -n 1)
+LATEST_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep "browser_download_url" | grep "$BIN_NAME" | cut -d '"' -f 4 | head -n 1)
 
 if [ -z "$LATEST_URL" ]; then
   echo "[-] Error: Could not find the latest release binary."
@@ -21,11 +27,15 @@ if [ -z "$LATEST_URL" ]; then
 fi
 
 echo "[*] Downloading from $LATEST_URL..."
-curl -L -o "/tmp/$BIN_NAME" "$LATEST_URL"
+curl -fsSL -o "$TMP_DIR/$BIN_NAME" "$LATEST_URL"
+
+if [ ! -s "$TMP_DIR/$BIN_NAME" ]; then
+  echo "[-] Error: Downloaded binary is empty."
+  exit 1
+fi
 
 echo "[*] Installing to $INSTALL_DIR/$BIN_NAME (might prompt for sudo)..."
-sudo mv "/tmp/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
-sudo chmod +x "$INSTALL_DIR/$BIN_NAME"
+sudo install -m 755 "$TMP_DIR/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
 
 echo ""
 echo "[+] Installation complete!"

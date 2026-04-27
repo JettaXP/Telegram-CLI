@@ -311,6 +311,27 @@ void App::run() {
             on_command("info");
             return true;
         }
+        if (event == Event::Escape && mode_ == UIMode::MAIN) {
+            bool closed_any = false;
+            {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                if (state_.show_info_panel) {
+                    state_.show_info_panel = false;
+                    closed_any = true;
+                }
+                if (state_.show_stars_panel) {
+                    state_.show_stars_panel = false;
+                    closed_any = true;
+                }
+                if (state_.show_gifts_panel) {
+                    state_.show_gifts_panel = false;
+                    closed_any = true;
+                }
+            }
+            if (closed_any) {
+                return true;
+            }
+        }
         if (event == Event::Character(':') && mode_ == UIMode::MAIN) {
             input_comp->TakeFocus();
             return false;

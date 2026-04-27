@@ -166,6 +166,7 @@ Component ChatView::component() {
                 text("Select a chat to start messaging") | dim | center,
                 text("Use arrows or j/k to navigate") | dim | center,
                 text("[Tab] Focus input | [Ctrl+;] Command | [:] Command | [F2] Info") | dim | center,
+                text("[Home/End] History top/bottom") | dim | center,
                 filler(),
             }) | flex;
         }
@@ -184,7 +185,7 @@ Component ChatView::component() {
             text(" "),
             text(chat_title) | bold | color(Color::Palette256(theme.chatview_sender)),
             filler(),
-            text(" [F2] Info ") | dim,
+            text(" [F2] Info | [PgDn/End] Down | [Home] Top ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
 
         // Messages
@@ -213,15 +214,31 @@ Component ChatView::component() {
         auto messages_view = vbox(std::move(msg_elements))
             | flex; // No yframe so it doesn't align top implicitly
 
+        auto footer = hbox({
+            filler(),
+            text(" ▼ Bottom ") | bold | color(Color::Palette256(theme.accent)),
+            text(" [End] ") | dim,
+        }) | bgcolor(Color::Palette256(theme.status_bg));
+
         return vbox({
             header,
             separator() | color(Color::Palette256(theme.border_color)),
             filler(), // Pushes messages to the bottom
             messages_view,
+            footer,
         }) | flex | reflect(box_);
     }) | CatchEvent([this](Event event) {
         // Handle mouse wheel for messages
         if (event.is_mouse()) {
+            if (box_.Contain(event.mouse().x, event.mouse().y) &&
+                event.mouse().button == Mouse::Left &&
+                event.mouse().motion == Mouse::Released &&
+                box_.y_max > 0 &&
+                event.mouse().y >= box_.y_max - 1) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                state_.scroll_offset = 0;
+                return true;
+            }
             if (event.mouse().button == Mouse::WheelUp) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 int total = static_cast<int>(state_.messages.size());
@@ -245,6 +262,19 @@ Component ChatView::component() {
         if (event == Event::PageDown) {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.scroll_offset = std::min(state_.scroll_offset + 10, 0);
+            return true;
+        }
+        if (event == Event::End) {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            state_.scroll_offset = 0;
+            return true;
+        }
+        if (event == Event::Home) {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            int total = static_cast<int>(state_.messages.size());
+            int term_height = box_.y_max > 0 ? (box_.y_max - box_.y_min) : 30;
+            int view_size = std::max(5, term_height / 4);
+            state_.scroll_offset = std::min(0, std::max(-total, -total + view_size));
             return true;
         }
 
