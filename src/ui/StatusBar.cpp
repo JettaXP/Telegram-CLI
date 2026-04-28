@@ -70,7 +70,7 @@ Element StatusBar::render() {
     }
 
     // App name / brand
-    auto brand = text(" TGCLI ") | bold | color(Color::Palette256(theme.accent));
+    auto brand = text(" Telegram CLI ") | bold | color(Color::Palette256(theme.accent));
 
     return hbox({
         brand,

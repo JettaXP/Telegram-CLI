@@ -4,7 +4,7 @@ A full-featured Telegram client for Linux terminals, built in C++ using **TDLib*
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║  TGCLI  | [●] Connected  |  YourName                             ║
+║  Telegram CLI  | [●] Connected  |  YourName                             ║
 ╠═══════════╦══════════════════════════════════════════╦═════════════╣
 ║  Chats    ║  Alice                          14:32   ║  Info       ║
 ║───────────║  Hey! How are you?                      ║─────────────║

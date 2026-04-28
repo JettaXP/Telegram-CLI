@@ -70,7 +70,7 @@ Component ChatList::component() {
 
             // Chat row
             std::string icon = chat.is_channel ? "CHA" : (chat.is_group ? "GRP" : "USR");
-            std::string pin = chat.is_pinned ? "P " : "  ";
+            std::string pin = chat.is_pinned ? "📌 " : "  ";
             
             auto title_line = hbox({
                 text(chat.title) | bold | xflex,

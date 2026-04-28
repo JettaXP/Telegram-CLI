@@ -24,6 +24,7 @@ private:
 
     ftxui::Element render_message(const MessageEntry& msg, bool selected);
     std::string format_time(int32_t timestamp);
+    std::string format_date(int32_t timestamp);
 };
 
 } // namespace tgcli::ui

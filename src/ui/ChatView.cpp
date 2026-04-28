@@ -19,6 +19,13 @@ std::string ChatView::format_time(int32_t timestamp) {
     return buf;
 }
 
+std::string ChatView::format_date(int32_t timestamp) {
+    std::time_t t = timestamp;
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&t));
+    return buf;
+}
+
 Element ChatView::render_message(const MessageEntry& msg, bool selected) {
     auto& theme = Config::instance().theme;
 
@@ -76,10 +83,17 @@ Component ChatView::component() {
         std::string title = "Chat";
         for (const auto& c : state_.chats) if (c.id == state_.selected_chat_id) { title = c.title; break; }
 
+        // Determine date for the top-most visible message
+        std::string date_str;
+        if (total > 0 && start < total) {
+            date_str = format_date(state_.messages[start].date);
+        }
+
         auto header = hbox({
             text(" " + title) | bold,
             filler(),
-            text("[F2] Info ") | dim,
+            text(date_str) | dim,
+            text(" [F2] Info ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
 
         Elements msg_elements;
