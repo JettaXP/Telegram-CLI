@@ -365,21 +365,6 @@ void App::run() {
             return true;
         }
 
-        // Global scroll handlers (PageUp/PageDown/Home/End, mouse wheel) when input not focused
-        if (mode_ == UIMode::MAIN && !input_focused) {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            int total = state_.messages.size();
-            int min_offset = -total;
-            if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); screen_.Post(Event::Custom); return true; }
-            if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); screen_.Post(Event::Custom); return true; }
-            if (event == Event::Home) { state_.scroll_offset = min_offset; screen_.Post(Event::Custom); return true; }
-            if (event == Event::End) { state_.scroll_offset = 0; screen_.Post(Event::Custom); return true; }
-            if (event.is_mouse()) {
-                if (event.mouse().button == Mouse::WheelUp) { state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); screen_.Post(Event::Custom); return true; }
-                if (event.mouse().button == Mouse::WheelDown) { state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); screen_.Post(Event::Custom); return true; }
-            }
-        }
-
         return false;
     });
 
