@@ -131,24 +131,24 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         msg_parts.push_back(reactions_elem);
     }
 
-    auto bubble = vbox(std::move(msg_parts));
+    auto bubble = vbox(std::move(msg_parts)) | borderRounded;
 
     // Outgoing messages get a slight visual distinction
     if (msg.is_outgoing) {
         bubble = hbox({
-            filler() | size(WIDTH, EQUAL, 4),
-            bubble | flex,
+            filler() | size(WIDTH, EQUAL, 6),
+            bubble | flex | color(Color::Palette256(theme.chatlist_selected_fg)),
         });
     } else {
         bubble = hbox({
-            bubble | flex,
-            filler() | size(WIDTH, EQUAL, 4),
+            bubble | flex | color(Color::Palette256(theme.chatview_fg)),
+            filler() | size(WIDTH, EQUAL, 6),
         });
     }
 
     // Selection highlight
     if (selected) {
-        bubble = bubble | bgcolor(Color::Palette256(theme.chatlist_selected_bg));
+        bubble = bubble | color(Color::Palette256(theme.accent));
     }
 
     return bubble;
@@ -164,8 +164,8 @@ Component ChatView::component() {
             return vbox({
                 filler(),
                 text("Select a chat to start messaging") | dim | center,
-                text("Use arrows or j/k to navigate") | dim | center,
-                text("[Tab] Focus input | [Ctrl+;] Command | [:] Command | [F2] Info") | dim | center,
+                text("Use Arrows or F3/F4 to navigate") | dim | center,
+                text("[Tab] Focus input | [:] Command | [F2] Info") | dim | center,
                 text("[Home/End] History top/bottom") | dim | center,
                 filler(),
             }) | flex;

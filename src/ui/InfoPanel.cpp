@@ -111,6 +111,8 @@ Component InfoPanel::component() {
                 std::string badge = exteraGram::badge_symbol(state_, user_id);
                 int badge_col = exteraGram::badge_color(state_, user_id);
                 std::string status = state_.extera_status(user_id);
+                if (status == "SUPPORTER") status = "Supporter";
+                else if (status == "DEVELOPER") status = "Developer";
 
                 info_items.push_back(text(""));
                 info_items.push_back(

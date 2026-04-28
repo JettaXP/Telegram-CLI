@@ -312,7 +312,7 @@ void App::run() {
         bool input_focused = input_comp->Focused();
 
         // Global hotkeys
-        if ((event == Event::F2 || (!input_focused && event == Event::Character('i'))) && mode_ == UIMode::MAIN) {
+        if ((event == Event::F2 ) && mode_ == UIMode::MAIN) {
             on_command("info");
             return true;
         }
