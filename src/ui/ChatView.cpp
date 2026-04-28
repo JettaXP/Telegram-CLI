@@ -83,6 +83,17 @@ Component ChatView::component() {
         std::string title = "Chat";
         for (const auto& c : state_.chats) if (c.id == state_.selected_chat_id) { title = c.title; break; }
 
+        // Measurements for view and message range
+        Elements msg_elements;
+        int total = state_.messages.size();
+        int height = box_.y_max - box_.y_min;
+        // Reserve space for header + separator + footer
+        int header_h = 3;
+        int footer_h = 2;
+        int view_size = std::max(1, height - header_h - footer_h);
+        int start = std::max(0, total - view_size + state_.scroll_offset);
+        int end = std::min(total, start + view_size);
+
         // Determine date for the top-most visible message
         std::string date_str;
         if (total > 0 && start < total) {
@@ -95,16 +106,6 @@ Component ChatView::component() {
             text(date_str) | dim,
             text(" [F2] Info ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
-
-        Elements msg_elements;
-        int total = state_.messages.size();
-        int height = box_.y_max - box_.y_min;
-        // Reserve space for header + separator + footer
-        int header_h = 3;
-        int footer_h = 2;
-        int view_size = std::max(1, height - header_h - footer_h);
-        int start = std::max(0, total - view_size + state_.scroll_offset);
-        int end = std::min(total, start + view_size);
 
         for (int i = start; i < end; i++) {
             msg_elements.push_back(render_message(state_.messages[i], i == selected_msg_index_));
@@ -126,6 +127,11 @@ Component ChatView::component() {
             footer,
         }) | flex | reflect(box_);
     }) | CatchEvent([this](Event event) {
+        // Only handle mouse events that are inside our box
+        if (event.is_mouse()) {
+            if (!box_.Contain(event.mouse().x, event.mouse().y)) return false;
+        }
+
         std::lock_guard<std::mutex> lock(state_.mtx);
         int total = state_.messages.size();
 
@@ -136,6 +142,10 @@ Component ChatView::component() {
         int view_size = std::max(1, height - header_h - footer_h);
         // Calculate bounds for scroll offset. Negative values mean scrolled up.
         int min_offset = std::min(0, view_size - total);
+
+        // Clamp scroll_offset
+        state_.scroll_offset = std::clamp(state_.scroll_offset, min_offset, 0);
+
         if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
         if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); return true; }
         if (event == Event::Home) { state_.scroll_offset = min_offset; return true; }
@@ -148,7 +158,9 @@ Component ChatView::component() {
             // Footer click: if left click released on footer area, jump to bottom
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
                 int footer_h = 2; // same as used when measuring view
-                if (event.mouse().y >= box_.y_max - footer_h - 1) {
+                // Use inclusive boundary to reliably detect clicks on the footer row
+                int footer_top = box_.y_max - footer_h;
+                if (event.mouse().y >= footer_top) {
                     state_.scroll_offset = 0;
                     return true;
                 }

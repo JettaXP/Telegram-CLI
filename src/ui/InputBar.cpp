@@ -16,6 +16,23 @@ Component InputBar::component() {
 
         Elements parts;
 
+        bool can_send = true;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            can_send = state_.selected_chat_details.can_send_messages;
+        }
+
+        if (!can_send) {
+            // Show notice instead of input
+            parts.push_back(
+                hbox({
+                    text(" ⚠ ") | color(Color::Palette256(theme.chatlist_unread)) | bold,
+                    text("You cannot send messages in this chat (muted or read-only)") | color(Color::Palette256(theme.input_fg)),
+                }) | bgcolor(Color::Palette256(theme.input_bg))
+            );
+            return vbox(std::move(parts));
+        }
+
         // Context banner (replying/editing)
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
@@ -54,6 +71,19 @@ Component InputBar::component() {
 
         return vbox(std::move(parts));
     }) | CatchEvent([this](Event event) {
+        // If sending is not allowed, consume input-related events
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            if (!state_.selected_chat_details.can_send_messages) {
+                // Allow Escape to clear reply/edit state
+                if (event == Event::Escape) {
+                    state_.reply_to_msg_id = 0;
+                    state_.edit_msg_id = 0;
+                }
+                return true;
+            }
+        }
+
         // Intercept navigation keys so input doesn't consume them for cursor movement
         if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
             std::lock_guard<std::mutex> lock(state_.mtx);

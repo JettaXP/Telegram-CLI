@@ -141,13 +141,40 @@ Component InfoPanel::component() {
         info_items.push_back(text("   :stars  View Stars") | dim);
         info_items.push_back(text("   :gifts  View Gifts") | dim);
         info_items.push_back(text("   :mute   Mute Chat") | dim);
+        info_items.push_back(text("   Press 'p' to Pin/Unpin in this panel") | dim);
         info_items.push_back(text("   F2 / Esc Close panel") | dim);
+
+        info_items.push_back(text(""));
+        // Show pinned status
+        info_items.push_back(hbox({
+            text("  Pinned: ") | dim,
+            text(chat->is_pinned ? "Yes" : "No") | color(Color::Palette256(theme.chatlist_pinned)),
+        }));
 
         info_items.push_back(filler());
 
         return vbox(std::move(info_items))
             | size(WIDTH, EQUAL, 24);
+    }) | CatchEvent([this](Event event) {
+        // Toggle pin/unpin when in info panel with 'p' or 'P'
+        if (event == Event::Character('p') || event == Event::Character('P')) {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            for (auto& c : state_.chats) {
+                if (c.id == state_.selected_chat_id) {
+                    c.is_pinned = !c.is_pinned;
+                    break;
+                }
+            }
+            // Re-sort pinned chats first
+            std::sort(state_.chats.begin(), state_.chats.end(), [](const ChatEntry& a, const ChatEntry& b){
+                if (a.is_pinned != b.is_pinned) return a.is_pinned > b.is_pinned;
+                return a.order > b.order;
+            });
+            return true;
+        }
+        return false;
     });
 }
+
 
 } // namespace tgcli::ui

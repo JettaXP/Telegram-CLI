@@ -130,6 +130,9 @@ struct ChatFullInfo {
     std::string phone;
     std::string description; // for groups/channels
     int32_t member_count = 0;
+    // Permissions / info
+    bool can_send_messages = true; // whether current user can send messages here
+    bool user_is_admin = false;    // whether current user is admin/creator
 };
 
 // ── Main state container ────────────────────────────────────────────────────

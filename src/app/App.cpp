@@ -96,6 +96,9 @@ void App::on_chat_selected(int64_t chat_id) {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.messages.clear();
             state_.scroll_offset = 0;
+            // Reset selected chat details so UI shows loading state
+            state_.selected_chat_details = ChatFullInfo{};
+            state_.selected_chat_details.id = chat_id;
         }
 
         messages_->load_history(chat_id, 30);
@@ -107,8 +110,13 @@ void App::on_chat_selected(int64_t chat_id) {
             messages_->mark_read(chat_id, state_.messages.back().id);
         }
 
-        // Refresh UI and request focus for input on the main thread
-        focus_input_pending_ = true;
+        // Refresh UI and request focus for input only if sending is allowed
+        bool can_send = true;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            can_send = state_.selected_chat_details.can_send_messages;
+        }
+        focus_input_pending_ = can_send;
         screen_.Post(Event::Custom);
 
     }).detach();
@@ -323,6 +331,72 @@ void App::run() {
         // In simple terms: if the input bar is focused, we don't handle single-letter hotkeys
         bool input_focused = input_comp->Focused();
 
+        // Allow navigation between chats even when input is focused: Arrow keys only
+        if (mode_ == UIMode::MAIN) {
+            if (event == Event::ArrowUp || event == Event::ArrowDown) {
+                int64_t sel_id = 0;
+                {
+                    std::lock_guard<std::mutex> lock(state_.mtx);
+                    int sz = (int)state_.chats.size();
+                    if (sz > 0) {
+                        int idx = state_.selected_chat_index;
+                        int new_idx = idx;
+                        if (event == Event::ArrowUp) new_idx = std::max(0, idx - 1);
+                        else if (event == Event::ArrowDown) new_idx = std::min(sz - 1, idx + 1);
+
+                        if (new_idx != idx) {
+                            state_.selected_chat_index = new_idx;
+                            state_.selected_chat_id = state_.chats[new_idx].id;
+                            sel_id = state_.selected_chat_id;
+                        }
+                    }
+                }
+                if (sel_id) {
+                    // Load the newly selected chat (runs on background thread)
+                    on_chat_selected(sel_id);
+                    return true;
+                }
+            }
+
+            // Page/Home keys should scroll chat, not switch chat — handle globally so input focus doesn't steal them
+            if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                int total = state_.messages.size();
+                int height = 0; // unknown here; approximate by moving offset by steps
+                int min_offset = std::min(0, (int)total - 1);
+                if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); }
+                if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); }
+                if (event == Event::Home) { state_.scroll_offset = min_offset; }
+                if (event == Event::End) { state_.scroll_offset = 0; }
+                return true;
+            }
+        }
+
+        // If Info panel is open, allow 'p' to pin/unpin regardless of input focus
+        {
+            bool show_info = false;
+            {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                show_info = state_.show_info_panel;
+            }
+            if (show_info && (event == Event::Character('p') || event == Event::Character('P'))) {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                for (auto& c : state_.chats) {
+                    if (c.id == state_.selected_chat_id) {
+                        c.is_pinned = !c.is_pinned;
+                        break;
+                    }
+                }
+                std::sort(state_.chats.begin(), state_.chats.end(), [](const ChatEntry& a, const ChatEntry& b){
+                    if (a.is_pinned != b.is_pinned) return a.is_pinned > b.is_pinned;
+                    return a.order > b.order;
+                });
+                // After pinning action, ensure focus returns to input when panel is closed
+                focus_input_pending_ = false;
+                return true;
+            }
+        }
+
         // Global hotkeys
         if ((event == Event::F2 ) && mode_ == UIMode::MAIN) {
             on_command("info");
@@ -361,6 +435,8 @@ void App::run() {
                 }
             }
             if (closed_any) {
+                // After closing a side panel, return focus to input bar on next render
+                focus_input_pending_ = true;
                 return true;
             }
         }

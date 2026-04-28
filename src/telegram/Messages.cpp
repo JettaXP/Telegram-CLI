@@ -323,7 +323,43 @@ void Messages::fetch_chat_full_info(int64_t chat_id) {
             state.selected_chat_details.description = full.description_;
         }
     }
+
+    // Determine whether current user can send messages in this chat (getChatMember)
+    try {
+        auto my_id = state.current_user.id;
+        if (my_id != 0) {
+            auto member_res = client_.send_sync(td_api::make_object<td_api::getChatMember>(chat_id, td_api::make_object<td_api::messageSenderUser>(my_id)), 3);
+            if (member_res && member_res->get_id() == td_api::chatMember::ID) {
+                auto& member = static_cast<td_api::chatMember&>(*member_res);
+                bool can_send = true;
+                bool is_admin = false;
+                if (member.status_) {
+                    td_api::downcast_call(*member.status_, [&can_send, &is_admin](auto& status) {
+                        using T = std::decay_t<decltype(status)>;
+                        if constexpr (std::is_same_v<T, td_api::chatMemberStatusRestricted>) {
+                            // Treat restricted as disallowing send (TDLib has fine-grained flags but older versions may not expose them uniformly)
+                            can_send = false;
+                        } else if constexpr (std::is_same_v<T, td_api::chatMemberStatusAdministrator>) {
+                            is_admin = true;
+                        } else if constexpr (std::is_same_v<T, td_api::chatMemberStatusCreator>) {
+                            is_admin = true;
+                        } else if constexpr (std::is_same_v<T, td_api::chatMemberStatusBanned>) {
+                            can_send = false;
+                        } else if constexpr (std::is_same_v<T, td_api::chatMemberStatusLeft>) {
+                            can_send = false;
+                        }
+                    });
+                }
+                std::lock_guard<std::mutex> lock(state.mtx);
+                state.selected_chat_details.can_send_messages = can_send;
+                state.selected_chat_details.user_is_admin = is_admin;
+            }
+        }
+    } catch (...) {
+        // Ignore any errors from TDLib sync calls; keep defaults
+    }
 }
+
 
 std::string Messages::get_user_name(int64_t user_id) {
     if (user_id <= 0) return "Channel";
