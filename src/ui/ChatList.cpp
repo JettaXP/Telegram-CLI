@@ -62,7 +62,7 @@ Component ChatList::component() {
                 }
             }
 
-            if (rendered < start_idx) { rendered++; idx++; continue; }
+            if (idx < start_idx) { idx++; continue; }
             if (visible_chat_ids_.size() >= (size_t)max_visible) break;
 
             visible_chat_ids_.push_back({idx, chat.id});

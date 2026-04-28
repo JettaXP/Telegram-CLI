@@ -84,7 +84,11 @@ Component ChatView::component() {
 
         Elements msg_elements;
         int total = state_.messages.size();
-        int view_size = 40; 
+        int height = box_.y_max - box_.y_min;
+        // Reserve space for header + separator + footer
+        int header_h = 3;
+        int footer_h = 2;
+        int view_size = std::max(1, height - header_h - footer_h);
         int start = std::max(0, total - view_size + state_.scroll_offset);
         int end = std::min(total, start + view_size);
 
@@ -111,13 +115,15 @@ Component ChatView::component() {
         std::lock_guard<std::mutex> lock(state_.mtx);
         int total = state_.messages.size();
 
-        if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, -total); return true; }
+        // Calculate bounds for scroll offset. Negative values mean scrolled up.
+        int min_offset = std::min(0, view_size - total);
+        if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
         if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); return true; }
-        if (event == Event::Home) { state_.scroll_offset = -total; return true; }
+        if (event == Event::Home) { state_.scroll_offset = min_offset; return true; }
         if (event == Event::End) { state_.scroll_offset = 0; return true; }
         
         if (event.is_mouse()) {
-            if (event.mouse().button == Mouse::WheelUp) { state_.scroll_offset = std::max(state_.scroll_offset - 2, -total); return true; }
+            if (event.mouse().button == Mouse::WheelUp) { state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); return true; }
             if (event.mouse().button == Mouse::WheelDown) { state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); return true; }
         }
         return false;

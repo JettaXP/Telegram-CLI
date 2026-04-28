@@ -110,10 +110,7 @@ void App::on_chat_selected(int64_t chat_id) {
         // Refresh UI
         screen_.Post(Event::Custom);
 
-        // Focus input bar so user can type immediately
-        if (input_comp_) {
-            input_comp_->TakeFocus();
-        }
+
     }).detach();
 }
 
