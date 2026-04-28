@@ -41,6 +41,8 @@ private:
 
     // Screen
     ftxui::ScreenInteractive screen_;
+    ftxui::Component main_container_;
+    ftxui::Component input_comp_;
 
     // Current UI mode
     enum class UIMode {

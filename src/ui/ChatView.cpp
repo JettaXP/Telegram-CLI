@@ -83,7 +83,7 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         if (!msg.media_caption.empty()) {
             content_elem = vbox({
                 media_elem,
-                text(msg.media_caption) | color(Color::Palette256(theme.chatview_fg)),
+                paragraph(msg.media_caption) | color(Color::Palette256(theme.chatview_fg)),
             });
         } else {
             content_elem = media_elem;
@@ -92,6 +92,9 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         content_elem = paragraph(msg.text)
             | color(Color::Palette256(theme.chatview_fg));
     }
+
+    // Wrap content in a vbox with flex to ensure paragraph wrapping works
+    content_elem = vbox({ content_elem }) | flex;
 
     // ── Reactions ───────────────────────────────────────────────────────
     Element reactions_elem = text("");

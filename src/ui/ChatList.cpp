@@ -14,13 +14,12 @@ Component ChatList::component() {
     auto search_input = Input(&search_text_, "Search...");
     auto search_maybe = Maybe(search_input, &searching_);
 
-    return Renderer(search_maybe, [this, search_input]() {
+    auto renderer = Renderer(search_maybe, [this, search_input] {
         std::lock_guard<std::mutex> lock(state_.mtx);
         auto& theme = Config::instance().theme;
 
         Elements items;
 
-        // Header
         items.push_back(
             hbox({
                 text("  Chats") | bold | color(Color::Palette256(theme.accent)),
@@ -30,7 +29,6 @@ Component ChatList::component() {
             }) | bgcolor(Color::Palette256(theme.chatlist_bg))
         );
 
-        // Search bar
         if (searching_) {
             items.push_back(
                 hbox({
@@ -42,7 +40,6 @@ Component ChatList::component() {
 
         items.push_back(separator() | color(Color::Palette256(theme.border_color)));
 
-        // Dynamic scroll window
         int max_visible = box_.y_max > 0 ? std::max(5, (box_.y_max - box_.y_min) / 3 + 1) : 40;
         int start_idx = std::max(0, state_.selected_chat_index - max_visible / 2);
 
@@ -76,19 +73,10 @@ Component ChatList::component() {
 
             std::string icon;
             int icon_color = theme.chatlist_fg;
-            if (chat.is_channel) {
-                icon = "\xE2\x9A\xA1 ";
-                icon_color = theme.chatlist_channel;
-            } else if (chat.is_group) {
-                icon = "\xE2\x9C\xAA ";
-                icon_color = theme.chatlist_group;
-            } else if (chat.is_bot) {
-                icon = "\xE2\x9A\x99 ";
-                icon_color = theme.chatlist_bot;
-            } else {
-                icon = "\xE2\x98\xBA ";
-                icon_color = theme.chatlist_fg;
-            }
+            if (chat.is_channel) { icon = "\xE2\x9A\xA1 "; icon_color = theme.chatlist_channel; }
+            else if (chat.is_group) { icon = "\xE2\x9C\xAA "; icon_color = theme.chatlist_group; }
+            else if (chat.is_bot) { icon = "\xE2\x9A\x99 "; icon_color = theme.chatlist_bot; }
+            else { icon = "\xE2\x98\xBA "; icon_color = theme.chatlist_fg; }
 
             std::string pin = chat.is_pinned ? "\xE2\x9C\xAF " : "";
 
@@ -96,8 +84,8 @@ Component ChatList::component() {
                 text(icon) | color(Color::Palette256(icon_color)),
                 text(chat.title) | bold | color(Color::Palette256(
                     selected ? theme.chatlist_selected_fg : theme.chatlist_fg
-                )),
-            });
+                )) | xflex,
+            }) | size(WIDTH, LESS_THAN, 22);
 
             if (state_.is_extera_supporter(chat.id)) {
                 std::string badge = exteraGram::badge_symbol(state_, chat.id);
@@ -111,15 +99,10 @@ Component ChatList::component() {
             auto unread_elem = text("");
             if (chat.unread_count > 0) {
                 unread_elem = text(" " + std::to_string(chat.unread_count) + " ")
-                    | bold
-                    | color(Color::Palette256(0))
-                    | bgcolor(Color::Palette256(theme.chatlist_unread));
+                    | bold | color(Color::Palette256(0)) | bgcolor(Color::Palette256(theme.chatlist_unread));
             }
 
-            auto preview_elem = text(" " + chat.last_message)
-                | dim
-                | color(Color::Palette256(theme.chatlist_fg))
-                | size(WIDTH, LESS_THAN, 24);
+            auto preview_elem = text(" " + chat.last_message) | dim | size(WIDTH, LESS_THAN, 24);
 
             auto row = vbox({
                 hbox({
@@ -131,15 +114,11 @@ Component ChatList::component() {
                 preview_elem,
             });
 
-            if (selected) {
-                row = row | bgcolor(Color::Palette256(theme.chatlist_selected_bg));
-            } else {
-                row = row | bgcolor(Color::Palette256(theme.chatlist_bg));
-            }
+            if (selected) row = row | bgcolor(Color::Palette256(theme.chatlist_selected_bg));
+            else row = row | bgcolor(Color::Palette256(theme.chatlist_bg));
 
             items.push_back(row);
             items.push_back(separator() | dim | color(Color::Palette256(theme.border_color)));
-            
             rendered++;
             idx++;
         }
@@ -151,12 +130,11 @@ Component ChatList::component() {
             | flex
             | bgcolor(Color::Palette256(theme.chatlist_bg))
             | reflect(box_);
-    }) | CatchEvent([this, search_input](Event event) {
-        if (event.is_mouse()) {
-            if (!box_.Contain(event.mouse().x, event.mouse().y)) {
-                return false;
-            }
+    });
 
+    return CatchEvent(renderer, [this, search_input](Event event) {
+        if (event.is_mouse()) {
+            if (!box_.Contain(event.mouse().x, event.mouse().y)) return false;
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
                 int start_y = searching_ ? 3 : 2; 
                 int local_y = event.mouse().y - box_.y_min;
@@ -173,52 +151,35 @@ Component ChatList::component() {
             }
             if (event.mouse().button == Mouse::WheelDown) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
-                if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) {
-                    state_.selected_chat_index++;
-                }
+                if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) state_.selected_chat_index++;
                 return true;
             }
             if (event.mouse().button == Mouse::WheelUp) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
-                if (state_.selected_chat_index > 0) {
-                    state_.selected_chat_index--;
-                }
+                if (state_.selected_chat_index > 0) state_.selected_chat_index--;
                 return true;
             }
             return true;
         }
 
         if (searching_) {
-            if (event == Event::Escape) {
-                searching_ = false;
-                search_text_.clear();
-                return true;
-            }
+            if (event == Event::Escape) { searching_ = false; search_text_.clear(); return true; }
             if (event == Event::Return) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
-                if (!state_.chats.empty()) {
-                    searching_ = false;
-                }
+                if (!state_.chats.empty()) searching_ = false;
                 return true;
             }
-            if (event == Event::ArrowUp || event == Event::ArrowDown) {
-            } else {
-                return false;
-            }
+            if (event == Event::ArrowUp || event == Event::ArrowDown) {} else return false;
         }
 
         if (event == Event::ArrowDown || event == Event::F4) {
             std::lock_guard<std::mutex> lock(state_.mtx);
-            if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) {
-                state_.selected_chat_index++;
-            }
+            if (state_.selected_chat_index < static_cast<int>(state_.chats.size()) - 1) state_.selected_chat_index++;
             return true;
         }
         if (event == Event::ArrowUp || event == Event::F3) {
             std::lock_guard<std::mutex> lock(state_.mtx);
-            if (state_.selected_chat_index > 0) {
-                state_.selected_chat_index--;
-            }
+            if (state_.selected_chat_index > 0) state_.selected_chat_index--;
             return true;
         }
         if (event == Event::PageDown) {

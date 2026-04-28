@@ -109,6 +109,11 @@ void App::on_chat_selected(int64_t chat_id) {
 
         // Refresh UI
         screen_.Post(Event::Custom);
+
+        // Focus input bar so user can type immediately
+        if (input_comp_) {
+            input_comp_->TakeFocus();
+        }
     }).detach();
 }
 
@@ -223,6 +228,7 @@ void App::run() {
     input_bar.set_on_send([this](const std::string& t) { on_message_send(t); });
     input_bar.set_on_command([this](const std::string& c) { on_command(c); });
     auto input_comp = input_bar.component();
+    input_comp_ = input_comp;
 
     ui::StarsPanel stars_panel(state_);
     auto stars_comp = stars_panel.component();
@@ -234,7 +240,7 @@ void App::run() {
     auto info_comp = info_panel.component();
 
     // ── Focus container for main view ───────────────────────────────────
-    auto main_container = Container::Horizontal({
+    main_container_ = Container::Horizontal({
         chatlist_comp,
         Container::Vertical({
             chatview_comp,
@@ -246,7 +252,7 @@ void App::run() {
     auto tab_index = std::make_shared<int>(0);
     bool auth_ready_handled = false;
 
-    auto root = Renderer(Container::Tab({auth_component, main_container}, tab_index.get()),
+    auto root = Renderer(Container::Tab({auth_component, main_container_}, tab_index.get()),
         [&, tab_index]() {
             // Check auth state
             AuthState auth_st;
