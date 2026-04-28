@@ -283,8 +283,9 @@ void App::run() {
             // ── Main layout ─────────────────────────────────────────────
             auto status = status_bar.render();
 
+            // Layout
             Elements main_row;
-            main_row.push_back(chatlist_comp->Render());
+            main_row.push_back(chatlist_comp->Render() | size(WIDTH, EQUAL, 30));
             main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
 
             // Center: chat view + input
