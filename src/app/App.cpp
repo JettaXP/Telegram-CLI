@@ -361,12 +361,10 @@ void App::run() {
             // Page/Home keys should scroll chat, not switch chat — handle globally so input focus doesn't steal them
             if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
                 std::lock_guard<std::mutex> lock(state_.mtx);
-                int total = state_.messages.size();
-                int height = 0; // unknown here; approximate by moving offset by steps
-                int min_offset = std::min(0, (int)total - 1);
-                if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); }
+                int total = (int)state_.messages.size();
+                if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, -total); }
                 if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); }
-                if (event == Event::Home) { state_.scroll_offset = min_offset; }
+                if (event == Event::Home) { state_.scroll_offset = -total; }
                 if (event == Event::End) { state_.scroll_offset = 0; }
                 return true;
             }

@@ -19,13 +19,6 @@ std::string ChatView::format_time(int32_t timestamp) {
     return buf;
 }
 
-std::string ChatView::format_date(int32_t timestamp) {
-    std::time_t t = timestamp;
-    char buf[32];
-    std::strftime(buf, sizeof(buf), "%Y-%m-%d", std::localtime(&t));
-    return buf;
-}
-
 Element ChatView::render_message(const MessageEntry& msg, bool selected) {
     auto& theme = Config::instance().theme;
 
@@ -35,7 +28,7 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         sender_elem = hbox({ sender_elem, text(" ➤") | color(Color::Palette256(exteraGram::badge_color(state_, msg.sender_id))) });
     }
 
-    // Content - using flex to force visibility
+    // Content - strictly using flex to ensure text wrapping and visibility
     Element content_elem;
     if (!msg.media_type.empty()) {
         std::string media_text = "[" + msg.media_type + "]";
@@ -43,24 +36,24 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
         
         auto media_elem = text(media_text) | color(Color::Palette256(theme.accent));
         if (!msg.media_caption.empty()) {
-            content_elem = vbox({ media_elem, paragraph(msg.media_caption) });
+            content_elem = vbox({ media_elem, paragraph(msg.media_caption) | flex });
         } else {
             content_elem = media_elem;
         }
     } else {
-        content_elem = paragraph(msg.text);
+        content_elem = paragraph(msg.text) | flex;
     }
 
     auto bubble = vbox({
         hbox({ sender_elem, filler(), text(format_time(msg.date)) | dim }),
         separator() | dim,
-        content_elem | flex_grow,
+        content_elem,
     }) | borderRounded | color(Color::Palette256(theme.chatview_fg));
 
     if (msg.is_outgoing) {
-        bubble = hbox({ filler() | size(WIDTH, EQUAL, 6), bubble | flex });
+        bubble = hbox({ filler() | size(WIDTH, EQUAL, 8), bubble | flex });
     } else {
-        bubble = hbox({ bubble | flex, filler() | size(WIDTH, EQUAL, 6) });
+        bubble = hbox({ bubble | flex, filler() | size(WIDTH, EQUAL, 8) });
     }
 
     if (selected) bubble = bubble | color(Color::Palette256(theme.accent));
@@ -76,6 +69,7 @@ Component ChatView::component() {
             return vbox({
                 filler(),
                 text("Select a chat to start messaging") | center | dim,
+                text("Arrows / F3 / F4 to navigate") | center | dim,
                 filler(),
             }) | flex;
         }
@@ -83,33 +77,27 @@ Component ChatView::component() {
         std::string title = "Chat";
         for (const auto& c : state_.chats) if (c.id == state_.selected_chat_id) { title = c.title; break; }
 
-        // Measurements for view and message range
-        Elements msg_elements;
-        int total = state_.messages.size();
-        int height = box_.y_max - box_.y_min;
-        // Reserve space for header + separator + footer
-        int header_h = 3;
-        int footer_h = 2;
-        int view_size = std::max(1, height - header_h - footer_h);
-        int start = std::max(0, total - view_size + state_.scroll_offset);
-        int end = std::min(total, start + view_size);
-
-        // Determine date for the top-most visible message
-        std::string date_str;
-        if (total > 0 && start < total) {
-            date_str = format_date(state_.messages[start].date);
-        }
-
         auto header = hbox({
             text(" " + title) | bold,
             filler(),
-            text(date_str) | dim,
-            text(" [F2] Info ") | dim,
+            text("[F2] Info ") | dim,
         }) | bgcolor(Color::Palette256(theme.status_bg));
+
+        Elements msg_elements;
+        int total = state_.messages.size();
+        int height = box_.y_max - box_.y_min;
+        int view_size = std::max(5, height - 5); 
+        
+        int start = std::max(0, total - view_size + state_.scroll_offset);
+        int end = std::min(total, start + view_size);
 
         for (int i = start; i < end; i++) {
             msg_elements.push_back(render_message(state_.messages[i], i == selected_msg_index_));
             msg_elements.push_back(text(" "));
+        }
+
+        if (msg_elements.empty()) {
+            msg_elements.push_back(text("No messages yet") | dim | center);
         }
 
         auto footer = hbox({
@@ -122,51 +110,37 @@ Component ChatView::component() {
 
         return vbox({
             header,
-            separator(),
+            separator() | color(Color::Palette256(theme.border_color)),
             vbox(std::move(msg_elements)) | yframe | flex,
             footer,
         }) | flex | reflect(box_);
     }) | CatchEvent([this](Event event) {
-        // Only handle mouse events that are inside our box
         if (event.is_mouse()) {
             if (!box_.Contain(event.mouse().x, event.mouse().y)) return false;
-        }
+            
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            int total = (int)state_.messages.size();
 
-        std::lock_guard<std::mutex> lock(state_.mtx);
-        int total = state_.messages.size();
-
-        // Recompute view size here — variables from the renderer lambda are not in scope.
-        int height = box_.y_max - box_.y_min;
-        int header_h = 3;
-        int footer_h = 2;
-        int view_size = std::max(1, height - header_h - footer_h);
-        // Calculate bounds for scroll offset. Negative values mean scrolled up.
-        int min_offset = std::min(0, view_size - total);
-
-        // Clamp scroll_offset
-        state_.scroll_offset = std::clamp(state_.scroll_offset, min_offset, 0);
-
-        if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
-        if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); return true; }
-        if (event == Event::Home) { state_.scroll_offset = min_offset; return true; }
-        if (event == Event::End) { state_.scroll_offset = 0; return true; }
-        
-        if (event.is_mouse()) {
-            if (event.mouse().button == Mouse::WheelUp) { state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); return true; }
-            if (event.mouse().button == Mouse::WheelDown) { state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); return true; }
-
-            // Footer click: if left click released on footer area, jump to bottom
+            if (event.mouse().button == Mouse::WheelUp) { 
+                state_.scroll_offset = std::max(state_.scroll_offset - 2, -total); 
+                return true; 
+            }
+            if (event.mouse().button == Mouse::WheelDown) { 
+                state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); 
+                return true; 
+            }
+            // Bottom button click
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
-                int footer_h = 2; // same as used when measuring view
-                // Use inclusive boundary to reliably detect clicks on the footer row
-                int footer_top = box_.y_max - footer_h;
-                if (event.mouse().y >= footer_top) {
+                if (event.mouse().y >= box_.y_max - 1) {
                     state_.scroll_offset = 0;
                     return true;
                 }
             }
         }
-        return false;
+        
+        // Key navigation is mostly handled globally in App.cpp to ensure it works during input,
+        // but we keep basic scroll here as fallback or for focused view
+        return false; 
     });
 }
 

@@ -9,7 +9,10 @@
 namespace tgcli {
 
 TdClient::TdClient(AppState& state) : state_(state) {
-    td::ClientManager::execute(td_api::make_object<td_api::setLogVerbosityLevel>(5)); // increase verbosity for debugging startup issues
+    td::ClientManager::execute(td_api::make_object<td_api::setLogVerbosityLevel>(5)); 
+    td::ClientManager::execute(td_api::make_object<td_api::setLogStream>(
+        td_api::make_object<td_api::logStreamFile>("debug.log", 10 * 1024 * 1024, false)
+    ));
     client_manager_ = std::make_unique<td::ClientManager>();
     client_id_ = client_manager_->create_client_id();
     // Send initial request to start auth flow
