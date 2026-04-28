@@ -54,6 +54,22 @@ Component InputBar::component() {
 
         return vbox(std::move(parts));
     }) | CatchEvent([this](Event event) {
+        // Intercept navigation keys so input doesn't consume them for cursor movement
+        if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            int total = state_.messages.size();
+            int min_offset = -total;
+            if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
+            if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); return true; }
+            if (event == Event::Home) { state_.scroll_offset = min_offset; return true; }
+            if (event == Event::End) { state_.scroll_offset = 0; return true; }
+        }
+
+        if (event.is_mouse()) {
+            if (event.mouse().button == Mouse::WheelUp) { std::lock_guard<std::mutex> lock(state_.mtx); int total = state_.messages.size(); int min_offset = -total; state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); return true; }
+            if (event.mouse().button == Mouse::WheelDown) { std::lock_guard<std::mutex> lock(state_.mtx); int total = state_.messages.size(); state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); return true; }
+        }
+
         if (event == Event::Return) {
             if (!input_text_.empty()) {
                 // Check for commands

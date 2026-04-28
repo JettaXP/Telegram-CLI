@@ -44,6 +44,9 @@ private:
     ftxui::Component main_container_;
     ftxui::Component input_comp_;
 
+    // UI focus helpers
+    std::atomic<bool> focus_input_pending_ = false;
+
     // Current UI mode
     enum class UIMode {
         AUTH,

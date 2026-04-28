@@ -107,12 +107,9 @@ void App::on_chat_selected(int64_t chat_id) {
             messages_->mark_read(chat_id, state_.messages.back().id);
         }
 
-        // Refresh UI
+        // Refresh UI and request focus for input on the main thread
+        focus_input_pending_ = true;
         screen_.Post(Event::Custom);
-
-        if (input_comp_) {
-            input_comp_->TakeFocus();
-        }
 
     }).detach();
 }
@@ -308,10 +305,18 @@ void App::run() {
                 main_row.push_back(info_comp->Render());
             }
 
-            return vbox({
+            auto layout = vbox({
                 status,
                 hbox(std::move(main_row)) | flex,
             });
+
+            // If a focus request from background thread is pending, take focus now (UI thread)
+            if (focus_input_pending_ && input_comp) {
+                focus_input_pending_ = false;
+                input_comp->TakeFocus();
+            }
+
+            return layout;
         }
     ) | CatchEvent([this, &input_bar, input_comp](Event event) {
         // Check if any interactive component has focus

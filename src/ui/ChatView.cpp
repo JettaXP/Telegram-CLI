@@ -115,6 +115,11 @@ Component ChatView::component() {
         std::lock_guard<std::mutex> lock(state_.mtx);
         int total = state_.messages.size();
 
+        // Recompute view size here — variables from the renderer lambda are not in scope.
+        int height = box_.y_max - box_.y_min;
+        int header_h = 3;
+        int footer_h = 2;
+        int view_size = std::max(1, height - header_h - footer_h);
         // Calculate bounds for scroll offset. Negative values mean scrolled up.
         int min_offset = std::min(0, view_size - total);
         if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
@@ -125,6 +130,15 @@ Component ChatView::component() {
         if (event.is_mouse()) {
             if (event.mouse().button == Mouse::WheelUp) { state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); return true; }
             if (event.mouse().button == Mouse::WheelDown) { state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); return true; }
+
+            // Footer click: if left click released on footer area, jump to bottom
+            if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
+                int footer_h = 2; // same as used when measuring view
+                if (event.mouse().y >= box_.y_max - footer_h - 1) {
+                    state_.scroll_offset = 0;
+                    return true;
+                }
+            }
         }
         return false;
     });
