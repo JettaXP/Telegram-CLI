@@ -54,7 +54,7 @@ Element ChatView::render_message(const MessageEntry& msg, bool selected) {
     }
 
     auto bubble = vbox({
-        hbox({ sender_elem, filler(), text(format_time(msg.date)) | dim }),
+        hbox({ sender_elem, filler(), text(format_date(msg.date) + " " + format_time(msg.date)) | dim }),
         separator() | dim,
         content_elem,
     }) | borderRounded | color(Color::Palette256(theme.chatview_fg));
@@ -100,15 +100,11 @@ Component ChatView::component() {
         int header_h = 3;
         int footer_h = 2;
         int view_size = std::max(1, height - header_h - footer_h);
-        int max_start = std::max(0, total - view_size);
         state_.chatview_view_size = view_size;
-
         int max_offset = std::max(0, total - view_size);
-        state_.scroll_offset = std::clamp(state_.scroll_offset, 0, max_offset);
+        state_.scroll_offset = std::clamp(state_.scroll_offset, -max_offset, 0);
 
-        int start = (state_.scroll_offset == 0)
-            ? max_offset
-            : std::max(0, total - view_size - state_.scroll_offset);
+        int start = std::max(0, total - view_size + state_.scroll_offset);
         int end = std::min(total, start + view_size);
 
         auto header = hbox({
@@ -156,14 +152,11 @@ Component ChatView::component() {
             }
 
             if (event.mouse().button == Mouse::WheelUp) {
-                if (state_.scroll_offset == 0) {
-                    state_.scroll_offset = 1;
-                }
-                state_.scroll_offset = std::min(state_.scroll_offset + 2, max_offset);
+                state_.scroll_offset = std::max(state_.scroll_offset - 2, -max_offset);
                 return true;
             }
             if (event.mouse().button == Mouse::WheelDown) {
-                state_.scroll_offset = std::max(state_.scroll_offset - 2, 0);
+                state_.scroll_offset = std::min(state_.scroll_offset + 2, 0);
                 return true;
             }
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
@@ -175,18 +168,15 @@ Component ChatView::component() {
         }
 
         if (event == Event::PageUp) {
-            if (state_.scroll_offset == 0) {
-                state_.scroll_offset = 1;
-            }
-            state_.scroll_offset = std::min(state_.scroll_offset + std::max(1, view_size / 4), max_offset);
+            state_.scroll_offset = std::max(state_.scroll_offset - std::max(1, view_size / 4), -max_offset);
             return true;
         }
         if (event == Event::PageDown) {
-            state_.scroll_offset = std::max(state_.scroll_offset - std::max(1, view_size / 4), 0);
+            state_.scroll_offset = std::min(state_.scroll_offset + std::max(1, view_size / 4), 0);
             return true;
         }
         if (event == Event::Home) {
-            state_.scroll_offset = max_offset;
+            state_.scroll_offset = -max_offset;
             return true;
         }
         if (event == Event::End) {

@@ -268,11 +268,11 @@ void App::run() {
         int view_size = std::max(1, state_.chatview_view_size);
         int max_offset = std::max(0, total - view_size);
         if (home) {
-            state_.scroll_offset = max_offset;
+            state_.scroll_offset = -max_offset;
         } else if (end) {
             state_.scroll_offset = 0;
         } else {
-            state_.scroll_offset = std::clamp(state_.scroll_offset + delta, 0, max_offset);
+            state_.scroll_offset = std::clamp(state_.scroll_offset + delta, -max_offset, 0);
         }
         screen_.Post(Event::Custom);
         return true;
@@ -307,9 +307,6 @@ void App::run() {
                 if (loaded < 200) {
                     state_.history_exhausted = true;
                 }
-                if (loaded > 0 && state_.scroll_offset > 0) {
-                    state_.scroll_offset += loaded;
-                }
                 state_.history_loading = false;
             }
 
@@ -341,7 +338,7 @@ void App::run() {
             int total = static_cast<int>(state_.messages.size());
             int view_size = std::max(1, state_.chatview_view_size);
             int max_offset = std::max(0, total - view_size);
-            return state_.scroll_offset >= max_offset &&
+            return state_.scroll_offset <= -max_offset &&
                    !state_.history_loading &&
                    !state_.history_exhausted &&
                    state_.selected_chat_id != 0;
@@ -502,7 +499,7 @@ void App::run() {
                     int total = static_cast<int>(state_.messages.size());
                     int view_size = std::max(1, state_.chatview_view_size);
                     int max_offset = std::max(0, total - view_size);
-                    load_history = (state_.scroll_offset >= max_offset &&
+                    load_history = (state_.scroll_offset <= -max_offset &&
                                     !state_.history_loading &&
                                     !state_.history_exhausted &&
                                     state_.selected_chat_id != 0);
