@@ -13,7 +13,7 @@ public:
     void load_chats(int limit = 50);
 
     // Load message history for a chat
-    void load_history(int64_t chat_id, int limit = 30, int64_t from_message_id = 0);
+    int load_history(int64_t chat_id, int limit = 30, int64_t from_message_id = 0);
 
     // Send a text message
     void send_text(int64_t chat_id, const std::string& text,

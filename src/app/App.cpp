@@ -14,8 +14,8 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
+#include <algorithm>
 #include <thread>
-#include <iostream>
 
 using namespace ftxui;
 
@@ -24,18 +24,14 @@ namespace tgcli {
 App::App()
     : config_(Config::instance()),
       screen_(ScreenInteractive::Fullscreen()) {
-
-    // Load configuration
     config_.load();
 
-    // Initialize TDLib client
     client_ = std::make_unique<TdClient>(state_);
     auth_ = std::make_unique<Auth>(*client_);
     messages_ = std::make_unique<Messages>(*client_);
     stars_ = std::make_unique<Stars>(*client_);
     gifts_ = std::make_unique<Gifts>(*client_);
 
-    // Set update callback to refresh UI
     client_->set_update_callback([this]() {
         screen_.Post(Event::Custom);
     });
@@ -54,10 +50,7 @@ void App::on_auth_ready() {
     auth_ready_initialized_ = true;
     mode_ = UIMode::MAIN;
 
-    // Fetch user info
     auth_->fetch_me();
-
-    // Load chats
     messages_->load_chats(50);
 
     {
@@ -77,12 +70,10 @@ void App::on_auth_ready() {
         on_chat_selected(chat_id);
     }
 
-    // Fetch profiles
     std::thread([this]() {
         exteraGram::fetch_profiles(state_);
     }).detach();
 
-    // Fetch Stars balance
     std::thread([this]() {
         stars_->fetch_balance();
         stars_->fetch_transactions();
@@ -90,35 +81,55 @@ void App::on_auth_ready() {
 }
 
 void App::on_chat_selected(int64_t chat_id) {
-    // Load history
+    focus_input_pending_ = false;
+    screen_.Post(Event::Custom);
+
     std::thread([this, chat_id]() {
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.messages.clear();
             state_.scroll_offset = 0;
-            // Reset selected chat details so UI shows loading state
+            state_.chatview_view_size = 1;
+            state_.follow_latest = true;
+            state_.oldest_loaded_message_id = 0;
+            state_.newest_loaded_message_id = 0;
+            state_.history_loading = true;
+            state_.history_exhausted = false;
             state_.selected_chat_details = ChatFullInfo{};
             state_.selected_chat_details.id = chat_id;
         }
 
-        messages_->load_history(chat_id, 30);
+        int loaded_count = messages_->load_history(chat_id, 1000);
         messages_->fetch_chat_full_info(chat_id);
 
-        // Mark as read
-        std::lock_guard<std::mutex> lock(state_.mtx);
+        bool current_chat = false;
+        bool can_send = true;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            current_chat = (state_.selected_chat_id == chat_id);
+            if (!state_.messages.empty()) {
+                state_.oldest_loaded_message_id = state_.messages.front().id;
+                state_.newest_loaded_message_id = state_.messages.back().id;
+            }
+            if (loaded_count < 1000) {
+                state_.history_exhausted = true;
+            }
+            state_.history_loading = false;
+            state_.follow_latest = true;
+            state_.scroll_offset = 0;
+            can_send = state_.selected_chat_details.can_send_messages;
+        }
+
+        if (!current_chat) {
+            return;
+        }
+
         if (!state_.messages.empty()) {
             messages_->mark_read(chat_id, state_.messages.back().id);
         }
 
-        // Refresh UI and request focus for input only if sending is allowed
-        bool can_send = true;
-        {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            can_send = state_.selected_chat_details.can_send_messages;
-        }
         focus_input_pending_ = can_send;
         screen_.Post(Event::Custom);
-
     }).detach();
 }
 
@@ -136,17 +147,19 @@ void App::on_message_send(const std::string& text) {
         state_.edit_msg_id = 0;
     }
 
-    if (chat_id == 0) return;
+    if (chat_id == 0) {
+        return;
+    }
 
     if (edit_id != 0) {
         messages_->edit_text(chat_id, edit_id, text);
+        return;
+    }
+
+    if (text.length() > 6 && text.substr(0, 6) == "/file ") {
+        messages_->send_file(chat_id, text.substr(6));
     } else {
-        // Check if it's a file send command
-        if (text.length() > 6 && text.substr(0, 6) == "/file ") {
-            messages_->send_file(chat_id, text.substr(6));
-        } else {
-            messages_->send_text(chat_id, text, reply_id);
-        }
+        messages_->send_text(chat_id, text, reply_id);
     }
 }
 
@@ -180,21 +193,15 @@ void App::on_command(const std::string& cmd) {
         config_.apply_theme("gruvbox");
         config_.theme_name = "gruvbox";
         config_.save();
-    } else if (cmd == "settings" || cmd == "config") {
-        // Just show info how to open config
-        // In a real app this would open a settings panel
     } else if (cmd == "quit" || cmd == "q") {
         screen_.Exit();
     } else if (cmd == "logout") {
         auth_->logout();
         screen_.Exit();
-    } else if (cmd == "buy") {
-        // Show purchase URL (can't open browser from terminal, just display)
-        // This is informational
     } else if (cmd.substr(0, 6) == "react ") {
-        // :react <emoji>
         std::string emoji = cmd.substr(6);
-        int64_t chat_id, msg_id;
+        int64_t chat_id = 0;
+        int64_t msg_id = 0;
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             chat_id = state_.selected_chat_id;
@@ -207,19 +214,15 @@ void App::on_command(const std::string& cmd) {
 }
 
 void App::setup_ui() {
-    // No setup needed — everything is done in run()
 }
 
 void App::run() {
-    // Start TDLib event loop
     client_->start();
 
-    // ── Auth Screen ─────────────────────────────────────────────────────
     ui::AuthScreen auth_screen(state_, *auth_);
     auth_screen.set_on_ready([this]() { on_auth_ready(); });
     auto auth_component = auth_screen.component();
 
-    // ── Main UI Components ──────────────────────────────────────────────
     ui::StatusBar status_bar(state_);
 
     ui::ChatList chat_list(state_);
@@ -232,6 +235,153 @@ void App::run() {
     ui::InputBar input_bar(state_);
     input_bar.set_on_send([this](const std::string& t) { on_message_send(t); });
     input_bar.set_on_command([this](const std::string& c) { on_command(c); });
+
+    auto reload_selected_chat = [this]() {
+        int64_t chat_id = 0;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            chat_id = state_.selected_chat_id;
+        }
+        if (chat_id == 0) {
+            return false;
+        }
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            state_.messages.clear();
+            state_.scroll_offset = 0;
+            state_.chatview_view_size = 1;
+            state_.follow_latest = true;
+            state_.oldest_loaded_message_id = 0;
+            state_.newest_loaded_message_id = 0;
+            state_.history_loading = false;
+            state_.history_exhausted = false;
+        }
+        on_chat_selected(chat_id);
+        return true;
+    };
+
+    auto page_step = [this]() {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        return std::max(1, state_.chatview_view_size / 2);
+    };
+
+    auto scroll_messages = [this](int delta, bool home, bool end) {
+        std::lock_guard<std::mutex> lock(state_.mtx);
+        int total = static_cast<int>(state_.messages.size());
+        int view_size = std::max(1, state_.chatview_view_size);
+        int max_start = std::max(0, total - view_size);
+        if (home) {
+            state_.follow_latest = false;
+            state_.scroll_offset = 0;
+        } else if (end) {
+            state_.follow_latest = true;
+            state_.scroll_offset = max_start;
+        } else {
+            state_.follow_latest = false;
+            state_.scroll_offset = std::clamp(state_.scroll_offset + delta, 0, max_start);
+            if (state_.scroll_offset >= max_start) {
+                state_.follow_latest = true;
+                state_.scroll_offset = max_start;
+            }
+        }
+        screen_.Post(Event::Custom);
+        return true;
+    };
+
+    auto request_older_history = [this]() {
+        int64_t chat_id = 0;
+        int64_t anchor_message_id = 0;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            if (state_.history_loading || state_.history_exhausted || state_.selected_chat_id == 0 || state_.oldest_loaded_message_id == 0) {
+                return true;
+            }
+            chat_id = state_.selected_chat_id;
+            anchor_message_id = state_.oldest_loaded_message_id;
+            state_.history_loading = true;
+        }
+
+        std::thread([this, chat_id, anchor_message_id]() {
+            int loaded = messages_->load_history(chat_id, 200, anchor_message_id);
+
+            {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                if (state_.selected_chat_id != chat_id) {
+                    state_.history_loading = false;
+                    return;
+                }
+                if (!state_.messages.empty()) {
+                    state_.oldest_loaded_message_id = state_.messages.front().id;
+                    state_.newest_loaded_message_id = state_.messages.back().id;
+                }
+                if (loaded < 200) {
+                    state_.history_exhausted = true;
+                }
+                if (loaded > 0 && !state_.follow_latest) {
+                    state_.scroll_offset += loaded;
+                }
+                state_.history_loading = false;
+            }
+
+            screen_.Post(Event::Custom);
+        }).detach();
+
+        return true;
+    };
+
+    auto select_chat_at = [this](int new_index) {
+        int chat_id = 0;
+        {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            if (state_.chats.empty()) {
+                return true;
+            }
+            new_index = std::clamp(new_index, 0, static_cast<int>(state_.chats.size()) - 1);
+            state_.selected_chat_index = new_index;
+            state_.selected_chat_id = state_.chats[new_index].id;
+            chat_id = state_.selected_chat_id;
+        }
+        on_chat_selected(chat_id);
+        return true;
+    };
+
+    input_bar.set_on_nav([&](ui::InputBar::NavAction action) {
+        switch (action) {
+            case ui::InputBar::NavAction::ArrowUp:
+                {
+                    int idx = 0;
+                    {
+                        std::lock_guard<std::mutex> lock(state_.mtx);
+                        idx = state_.selected_chat_index - 1;
+                    }
+                    return select_chat_at(idx);
+                }
+            case ui::InputBar::NavAction::ArrowDown:
+                {
+                    int idx = 0;
+                    {
+                        std::lock_guard<std::mutex> lock(state_.mtx);
+                        idx = state_.selected_chat_index + 1;
+                    }
+                    return select_chat_at(idx);
+                }
+            case ui::InputBar::NavAction::PageUp:
+                if (scroll_messages(-page_step(), false, false)) {
+                    return true;
+                }
+                return request_older_history();
+            case ui::InputBar::NavAction::PageDown:
+                return scroll_messages(page_step(), false, false);
+            case ui::InputBar::NavAction::Home:
+                return scroll_messages(0, true, false);
+            case ui::InputBar::NavAction::End:
+                return scroll_messages(0, false, true);
+            case ui::InputBar::NavAction::Reload:
+                return reload_selected_chat();
+        }
+        return false;
+    });
+
     auto input_comp = input_bar.component();
     input_comp_ = input_comp;
 
@@ -244,7 +394,6 @@ void App::run() {
     ui::InfoPanel info_panel(state_);
     auto info_comp = info_panel.component();
 
-    // ── Focus container for main view ───────────────────────────────────
     main_container_ = Container::Horizontal({
         chatlist_comp,
         Container::Vertical({
@@ -253,15 +402,15 @@ void App::run() {
         }),
     });
 
-    // ── Root component ──────────────────────────────────────────────────
     auto tab_index = std::make_shared<int>(0);
     bool auth_ready_handled = false;
 
     auto root = Renderer(Container::Tab({auth_component, main_container_}, tab_index.get()),
         [&, tab_index]() {
-            // Check auth state
             AuthState auth_st;
-            bool show_stars, show_gifts, show_info;
+            bool show_stars = false;
+            bool show_gifts = false;
+            bool show_info = false;
             {
                 std::lock_guard<std::mutex> lock(state_.mtx);
                 auth_st = state_.auth_state;
@@ -280,20 +429,15 @@ void App::run() {
             if (auth_st != AuthState::READY && mode_ == UIMode::AUTH) {
                 *tab_index = 0;
                 return auth_component->Render();
-            } else {
-                mode_ = UIMode::MAIN;
-                *tab_index = 1;
             }
 
-            // ── Main layout ─────────────────────────────────────────────
-            auto status = status_bar.render();
+            mode_ = UIMode::MAIN;
+            *tab_index = 1;
 
-            // Layout
+            auto status = status_bar.render();
             Elements main_row;
             main_row.push_back(chatlist_comp->Render() | size(WIDTH, EQUAL, 30));
             main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
-
-            // Center: chat view + input
             main_row.push_back(
                 vbox({
                     chatview_comp->Render() | flex,
@@ -301,7 +445,6 @@ void App::run() {
                 }) | flex
             );
 
-            // Right: optional panels
             if (show_stars) {
                 main_row.push_back(separator() | color(Color::Palette256(config_.theme.border_color)));
                 main_row.push_back(stars_comp->Render());
@@ -318,7 +461,6 @@ void App::run() {
                 hbox(std::move(main_row)) | flex,
             });
 
-            // If a focus request from background thread is pending, take focus now (UI thread)
             if (focus_input_pending_ && input_comp) {
                 focus_input_pending_ = false;
                 input_comp->TakeFocus();
@@ -326,51 +468,54 @@ void App::run() {
 
             return layout;
         }
-    ) | CatchEvent([this, &input_bar, input_comp](Event event) {
-        // Check if any interactive component has focus
-        // In simple terms: if the input bar is focused, we don't handle single-letter hotkeys
+    ) | CatchEvent([this, &input_bar, input_comp, scroll_messages, request_older_history, reload_selected_chat, page_step](Event event) {
         bool input_focused = input_comp->Focused();
 
-        // Allow navigation between chats even when input is focused: Arrow keys only
-        if (mode_ == UIMode::MAIN) {
-            if (event == Event::ArrowUp || event == Event::ArrowDown) {
-                int64_t sel_id = 0;
-                {
-                    std::lock_guard<std::mutex> lock(state_.mtx);
-                    int sz = (int)state_.chats.size();
-                    if (sz > 0) {
-                        int idx = state_.selected_chat_index;
-                        int new_idx = idx;
-                        if (event == Event::ArrowUp) new_idx = std::max(0, idx - 1);
-                        else if (event == Event::ArrowDown) new_idx = std::min(sz - 1, idx + 1);
-
-                        if (new_idx != idx) {
-                            state_.selected_chat_index = new_idx;
-                            state_.selected_chat_id = state_.chats[new_idx].id;
-                            sel_id = state_.selected_chat_id;
-                        }
-                    }
-                }
-                if (sel_id) {
-                    // Load the newly selected chat (runs on background thread)
-                    on_chat_selected(sel_id);
+        auto select_chat_by_delta = [&](int delta) {
+            int64_t chat_id = 0;
+            {
+                std::lock_guard<std::mutex> lock(state_.mtx);
+                if (state_.chats.empty()) {
                     return true;
                 }
+                int new_idx = std::clamp(state_.selected_chat_index + delta, 0, static_cast<int>(state_.chats.size()) - 1);
+                state_.selected_chat_index = new_idx;
+                state_.selected_chat_id = state_.chats[new_idx].id;
+                chat_id = state_.selected_chat_id;
             }
+            on_chat_selected(chat_id);
+            return true;
+        };
 
-            // Page/Home keys should scroll chat, not switch chat — handle globally so input focus doesn't steal them
-            if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
-                std::lock_guard<std::mutex> lock(state_.mtx);
-                int total = (int)state_.messages.size();
-                if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, -total); }
-                if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); }
-                if (event == Event::Home) { state_.scroll_offset = -total; }
-                if (event == Event::End) { state_.scroll_offset = 0; }
-                return true;
+        if (mode_ == UIMode::MAIN) {
+            if (event == Event::ArrowUp) {
+                return select_chat_by_delta(-1);
+            }
+            if (event == Event::ArrowDown) {
+                return select_chat_by_delta(1);
+            }
+            if (event == Event::PageUp) {
+                bool needs_history = false;
+                {
+                    std::lock_guard<std::mutex> lock(state_.mtx);
+                    needs_history = (!state_.follow_latest && state_.scroll_offset == 0 && !state_.history_loading && !state_.history_exhausted && state_.selected_chat_id != 0);
+                }
+                if (needs_history) {
+                    return request_older_history();
+                }
+                return scroll_messages(-page_step(), false, false);
+            }
+            if (event == Event::PageDown) {
+                return scroll_messages(page_step(), false, false);
+            }
+            if (event == Event::Home) {
+                return scroll_messages(0, true, false);
+            }
+            if (event == Event::End) {
+                return scroll_messages(0, false, true);
             }
         }
 
-        // If Info panel is open, allow 'p' to pin/unpin regardless of input focus
         {
             bool show_info = false;
             {
@@ -385,31 +530,29 @@ void App::run() {
                         break;
                     }
                 }
-                std::sort(state_.chats.begin(), state_.chats.end(), [](const ChatEntry& a, const ChatEntry& b){
-                    if (a.is_pinned != b.is_pinned) return a.is_pinned > b.is_pinned;
+                std::sort(state_.chats.begin(), state_.chats.end(), [](const ChatEntry& a, const ChatEntry& b) {
+                    if (a.is_pinned != b.is_pinned) {
+                        return a.is_pinned > b.is_pinned;
+                    }
                     return a.order > b.order;
                 });
-                // After pinning action, ensure focus returns to input when panel is closed
                 focus_input_pending_ = false;
                 return true;
             }
         }
 
-        // Global hotkeys
-        if ((event == Event::F2 ) && mode_ == UIMode::MAIN) {
+        if ((event == Event::F2) && mode_ == UIMode::MAIN) {
             on_command("info");
             return true;
         }
 
-        // Colon to enter command mode
         if (event == Event::Character(':') && mode_ == UIMode::MAIN && !input_focused) {
             input_bar.set_text(":");
             input_comp->TakeFocus();
             return true;
         }
 
-        // Ctrl+G as alternative for Ctrl+;
-        if (event == Event::Special("\x07") && mode_ == UIMode::MAIN) { // Ctrl+G
+        if (event == Event::Special("\x07") && mode_ == UIMode::MAIN) {
             input_bar.set_text(":");
             input_comp->TakeFocus();
             return true;
@@ -433,12 +576,19 @@ void App::run() {
                 }
             }
             if (closed_any) {
-                // After closing a side panel, return focus to input bar on next render
                 focus_input_pending_ = true;
                 return true;
             }
         }
-        
+
+        if (event == Event::F3 && mode_ == UIMode::MAIN) {
+            return reload_selected_chat();
+        }
+
+        if (event == Event::Return && mode_ == UIMode::MAIN && !input_focused) {
+            return reload_selected_chat();
+        }
+
         if (event == Event::Character('\x03')) {
             screen_.Exit();
             return true;

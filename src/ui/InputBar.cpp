@@ -71,35 +71,17 @@ Component InputBar::component() {
 
         return vbox(std::move(parts));
     }) | CatchEvent([this](Event event) {
-        // If sending is not allowed, consume input-related events
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             if (!state_.selected_chat_details.can_send_messages) {
-                // Allow Escape to clear reply/edit state
                 if (event == Event::Escape) {
                     state_.reply_to_msg_id = 0;
                     state_.edit_msg_id = 0;
+                    return true;
                 }
-                return true;
+                return false;
             }
         }
-
-        // Intercept navigation keys so input doesn't consume them for cursor movement
-        if (event == Event::PageUp || event == Event::PageDown || event == Event::Home || event == Event::End) {
-            std::lock_guard<std::mutex> lock(state_.mtx);
-            int total = state_.messages.size();
-            int min_offset = -total;
-            if (event == Event::PageUp) { state_.scroll_offset = std::max(state_.scroll_offset - 5, min_offset); return true; }
-            if (event == Event::PageDown) { state_.scroll_offset = std::min(state_.scroll_offset + 5, 0); return true; }
-            if (event == Event::Home) { state_.scroll_offset = min_offset; return true; }
-            if (event == Event::End) { state_.scroll_offset = 0; return true; }
-        }
-
-        if (event.is_mouse()) {
-            if (event.mouse().button == Mouse::WheelUp) { std::lock_guard<std::mutex> lock(state_.mtx); int total = state_.messages.size(); int min_offset = -total; state_.scroll_offset = std::max(state_.scroll_offset - 2, min_offset); return true; }
-            if (event.mouse().button == Mouse::WheelDown) { std::lock_guard<std::mutex> lock(state_.mtx); int total = state_.messages.size(); state_.scroll_offset = std::min(state_.scroll_offset + 2, 0); return true; }
-        }
-
         if (event == Event::Return) {
             if (!input_text_.empty()) {
                 // Check for commands
@@ -118,6 +100,35 @@ Component InputBar::component() {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.reply_to_msg_id = 0;
             state_.edit_msg_id = 0;
+            return true;
+        }
+
+        if (event == Event::ArrowUp) {
+            if (on_nav_) on_nav_(NavAction::ArrowUp);
+            return true;
+        }
+        if (event == Event::ArrowDown) {
+            if (on_nav_) on_nav_(NavAction::ArrowDown);
+            return true;
+        }
+        if (event == Event::PageUp) {
+            if (on_nav_) on_nav_(NavAction::PageUp);
+            return true;
+        }
+        if (event == Event::PageDown) {
+            if (on_nav_) on_nav_(NavAction::PageDown);
+            return true;
+        }
+        if (event == Event::Home) {
+            if (on_nav_) on_nav_(NavAction::Home);
+            return true;
+        }
+        if (event == Event::End) {
+            if (on_nav_) on_nav_(NavAction::End);
+            return true;
+        }
+        if (event == Event::F3) {
+            if (on_nav_) on_nav_(NavAction::Reload);
             return true;
         }
 

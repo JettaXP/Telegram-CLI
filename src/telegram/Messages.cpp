@@ -106,14 +106,14 @@ void Messages::load_chats(int limit) {
     state.chats = std::move(new_chats);
 }
 
-void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id) {
+int Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id) {
     auto result = client_.send_sync(
         td_api::make_object<td_api::getChatHistory>(
             chat_id, from_message_id, 0, limit, false
         )
     );
 
-    if (!result || result->get_id() != td_api::messages::ID) return;
+    if (!result || result->get_id() != td_api::messages::ID) return 0;
 
     auto& msgs = static_cast<td_api::messages&>(*result);
     auto& state = client_.state();
@@ -199,7 +199,7 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
 
     std::lock_guard<std::mutex> lock(state.mtx);
     if (state.selected_chat_id != chat_id) {
-        return;
+        return 0;
     }
     if (from_message_id == 0) {
         state.messages = std::move(entries);
@@ -207,6 +207,8 @@ void Messages::load_history(int64_t chat_id, int limit, int64_t from_message_id)
         // Prepend older messages
         state.messages.insert(state.messages.begin(), entries.begin(), entries.end());
     }
+
+    return static_cast<int>(entries.size());
 }
 
 void Messages::send_text(int64_t chat_id, const std::string& text, int64_t reply_to_msg_id) {

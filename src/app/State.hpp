@@ -162,6 +162,12 @@ struct AppState {
     // Messages for current chat
     std::vector<MessageEntry> messages;
     int scroll_offset = 0;
+    int chatview_view_size = 1;
+    bool follow_latest = true;
+    int64_t oldest_loaded_message_id = 0;
+    int64_t newest_loaded_message_id = 0;
+    bool history_loading = false;
+    bool history_exhausted = false;
 
     // Stars
     int64_t stars_balance = 0;
