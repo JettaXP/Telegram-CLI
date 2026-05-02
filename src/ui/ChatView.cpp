@@ -104,11 +104,7 @@ Component ChatView::component() {
         state_.chatview_view_size = view_size;
 
         int max_offset = std::max(0, total - view_size);
-        if (state_.scroll_offset <= 0) {
-            state_.scroll_offset = 0;
-        } else {
-            state_.scroll_offset = std::clamp(state_.scroll_offset, 1, max_offset);
-        }
+        state_.scroll_offset = std::clamp(state_.scroll_offset, 0, max_offset);
 
         int start = (state_.scroll_offset == 0)
             ? max_offset
