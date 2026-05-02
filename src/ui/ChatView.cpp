@@ -103,13 +103,10 @@ Component ChatView::component() {
         int max_start = std::max(0, total - view_size);
         state_.chatview_view_size = view_size;
 
-        if (state_.follow_latest) {
-            state_.scroll_offset = max_start;
-        } else {
-            state_.scroll_offset = std::clamp(state_.scroll_offset, 0, max_start);
-        }
+        int min_offset = -total;
+        state_.scroll_offset = std::clamp(state_.scroll_offset, min_offset, 0);
 
-        int start = state_.follow_latest ? max_start : state_.scroll_offset;
+        int start = std::max(0, total - view_size + state_.scroll_offset);
         int end = std::min(total, start + view_size);
 
         auto header = hbox({
@@ -157,46 +154,35 @@ Component ChatView::component() {
             }
 
             if (event.mouse().button == Mouse::WheelUp) {
-                int current = state_.follow_latest ? max_start : state_.scroll_offset;
-                state_.follow_latest = false;
-                state_.scroll_offset = std::max(0, current - 2);
+                state_.scroll_offset = std::max(state_.scroll_offset - 2, -total);
                 return true;
             }
             if (event.mouse().button == Mouse::WheelDown) {
-                int current = state_.follow_latest ? max_start : state_.scroll_offset;
-                state_.scroll_offset = std::min(max_start, current + 2);
-                state_.follow_latest = (state_.scroll_offset >= max_start);
+                state_.scroll_offset = std::min(state_.scroll_offset + 2, 0);
                 return true;
             }
             if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
                 if (event.mouse().y >= box_.y_max - footer_h - 1) {
-                    state_.follow_latest = true;
-                    state_.scroll_offset = max_start;
+                    state_.scroll_offset = 0;
                     return true;
                 }
             }
         }
 
         if (event == Event::PageUp) {
-            int current = state_.follow_latest ? max_start : state_.scroll_offset;
-            state_.follow_latest = false;
-            state_.scroll_offset = std::max(0, current - std::max(1, view_size / 2));
+            state_.scroll_offset = std::max(state_.scroll_offset - std::max(1, view_size / 4), -total);
             return true;
         }
         if (event == Event::PageDown) {
-            int current = state_.follow_latest ? max_start : state_.scroll_offset;
-            state_.scroll_offset = std::min(max_start, current + std::max(1, view_size / 2));
-            state_.follow_latest = (state_.scroll_offset >= max_start);
+            state_.scroll_offset = std::min(state_.scroll_offset + std::max(1, view_size / 4), 0);
             return true;
         }
         if (event == Event::Home) {
-            state_.follow_latest = false;
-            state_.scroll_offset = 0;
+            state_.scroll_offset = -total;
             return true;
         }
         if (event == Event::End) {
-            state_.follow_latest = true;
-            state_.scroll_offset = max_start;
+            state_.scroll_offset = 0;
             return true;
         }
 

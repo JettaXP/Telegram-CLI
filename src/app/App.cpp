@@ -90,7 +90,6 @@ void App::on_chat_selected(int64_t chat_id) {
             state_.messages.clear();
             state_.scroll_offset = 0;
             state_.chatview_view_size = 1;
-            state_.follow_latest = true;
             state_.oldest_loaded_message_id = 0;
             state_.newest_loaded_message_id = 0;
             state_.history_loading = true;
@@ -115,7 +114,6 @@ void App::on_chat_selected(int64_t chat_id) {
                 state_.history_exhausted = true;
             }
             state_.history_loading = false;
-            state_.follow_latest = true;
             state_.scroll_offset = 0;
             can_send = state_.selected_chat_details.can_send_messages;
         }
@@ -250,7 +248,6 @@ void App::run() {
             state_.messages.clear();
             state_.scroll_offset = 0;
             state_.chatview_view_size = 1;
-            state_.follow_latest = true;
             state_.oldest_loaded_message_id = 0;
             state_.newest_loaded_message_id = 0;
             state_.history_loading = false;
@@ -262,25 +259,20 @@ void App::run() {
 
     auto page_step = [this]() {
         std::lock_guard<std::mutex> lock(state_.mtx);
-        return std::max(1, state_.chatview_view_size / 2);
+        return std::max(3, state_.chatview_view_size / 4);
     };
 
     auto scroll_messages = [this](int delta, bool home, bool end) {
         std::lock_guard<std::mutex> lock(state_.mtx);
         int total = static_cast<int>(state_.messages.size());
         int view_size = std::max(1, state_.chatview_view_size);
-        int max_start = std::max(0, total - view_size);
+        int min_offset = -total;
         if (home) {
-            state_.follow_latest = false;
-            state_.scroll_offset = 0;
+            state_.scroll_offset = min_offset;
         } else if (end) {
-            state_.follow_latest = true;
-            state_.scroll_offset = max_start;
+            state_.scroll_offset = 0;
         } else {
-            int current = state_.follow_latest ? max_start : state_.scroll_offset;
-            state_.follow_latest = false;
-            state_.scroll_offset = std::clamp(current + delta, 0, max_start);
-            state_.follow_latest = (state_.scroll_offset >= max_start);
+            state_.scroll_offset = std::clamp(state_.scroll_offset + delta, min_offset, 0);
         }
         screen_.Post(Event::Custom);
         return true;
@@ -315,8 +307,8 @@ void App::run() {
                 if (loaded < 200) {
                     state_.history_exhausted = true;
                 }
-                if (loaded > 0 && !state_.follow_latest) {
-                    state_.scroll_offset += loaded;
+                if (loaded > 0 && state_.scroll_offset < 0) {
+                    state_.scroll_offset -= loaded;
                 }
                 state_.history_loading = false;
             }
@@ -346,8 +338,7 @@ void App::run() {
     input_bar.set_on_nav([&](ui::InputBar::NavAction action) {
         auto needs_history = [&]() {
             std::lock_guard<std::mutex> lock(state_.mtx);
-            return !state_.follow_latest &&
-                   state_.scroll_offset == 0 &&
+            return state_.scroll_offset <= -static_cast<int>(state_.messages.size()) &&
                    !state_.history_loading &&
                    !state_.history_exhausted &&
                    state_.selected_chat_id != 0;
@@ -505,8 +496,7 @@ void App::run() {
                 bool load_history = false;
                 {
                     std::lock_guard<std::mutex> lock(state_.mtx);
-                    load_history = (!state_.follow_latest &&
-                                    state_.scroll_offset == 0 &&
+                    load_history = (state_.scroll_offset <= -static_cast<int>(state_.messages.size()) &&
                                     !state_.history_loading &&
                                     !state_.history_exhausted &&
                                     state_.selected_chat_id != 0);
