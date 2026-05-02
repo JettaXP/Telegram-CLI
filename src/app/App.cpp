@@ -277,12 +277,10 @@ void App::run() {
             state_.follow_latest = true;
             state_.scroll_offset = max_start;
         } else {
+            int current = state_.follow_latest ? max_start : state_.scroll_offset;
             state_.follow_latest = false;
-            state_.scroll_offset = std::clamp(state_.scroll_offset + delta, 0, max_start);
-            if (state_.scroll_offset >= max_start) {
-                state_.follow_latest = true;
-                state_.scroll_offset = max_start;
-            }
+            state_.scroll_offset = std::clamp(current + delta, 0, max_start);
+            state_.follow_latest = (state_.scroll_offset >= max_start);
         }
         screen_.Post(Event::Custom);
         return true;
@@ -346,6 +344,15 @@ void App::run() {
     };
 
     input_bar.set_on_nav([&](ui::InputBar::NavAction action) {
+        auto needs_history = [&]() {
+            std::lock_guard<std::mutex> lock(state_.mtx);
+            return !state_.follow_latest &&
+                   state_.scroll_offset == 0 &&
+                   !state_.history_loading &&
+                   !state_.history_exhausted &&
+                   state_.selected_chat_id != 0;
+        };
+
         switch (action) {
             case ui::InputBar::NavAction::ArrowUp:
                 {
@@ -366,10 +373,10 @@ void App::run() {
                     return select_chat_at(idx);
                 }
             case ui::InputBar::NavAction::PageUp:
-                if (scroll_messages(-page_step(), false, false)) {
-                    return true;
+                if (needs_history()) {
+                    return request_older_history();
                 }
-                return request_older_history();
+                return scroll_messages(-page_step(), false, false);
             case ui::InputBar::NavAction::PageDown:
                 return scroll_messages(page_step(), false, false);
             case ui::InputBar::NavAction::Home:
@@ -495,12 +502,16 @@ void App::run() {
                 return select_chat_by_delta(1);
             }
             if (event == Event::PageUp) {
-                bool needs_history = false;
+                bool load_history = false;
                 {
                     std::lock_guard<std::mutex> lock(state_.mtx);
-                    needs_history = (!state_.follow_latest && state_.scroll_offset == 0 && !state_.history_loading && !state_.history_exhausted && state_.selected_chat_id != 0);
+                    load_history = (!state_.follow_latest &&
+                                    state_.scroll_offset == 0 &&
+                                    !state_.history_loading &&
+                                    !state_.history_exhausted &&
+                                    state_.selected_chat_id != 0);
                 }
-                if (needs_history) {
+                if (load_history) {
                     return request_older_history();
                 }
                 return scroll_messages(-page_step(), false, false);
