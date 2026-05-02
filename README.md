@@ -80,15 +80,9 @@ tgcli
 
 | Key | Action |
 |-----|--------|
-| `j` / `↓` | Navigate down in chat list |
-| `k` / `↑` | Navigate up in chat list |
-| `Enter` | Select chat / Send message |
-| `/` | Toggle search in chat list |
+| `↓` | Navigate down in chat list |
+| `↑` | Navigate up in chat list |
 | `F2` | Toggle info panel |
-| `r` | Reply to last message |
-| `e` | Edit last outgoing message |
-| `d` | Delete last message |
-| `f` | Forward last message |
 | `PgUp/PgDn` | Scroll message history |
 | `Esc` | Cancel reply/edit |
 | `Ctrl+C` | Quit |
@@ -108,13 +102,13 @@ Type in the message input bar (prefix with `:`):
 | `:theme dark` | Switch to Dark theme |
 | `:theme nord` | Switch to Nord theme |
 | `:theme gruvbox` | Switch to Gruvbox theme |
-| `:react ❤️` | React to last message |
+| `:react ❤️` | React to last message | //not working
 | `:logout` | Log out of Telegram |
 | `:quit` | Exit the app |
 
 ## Media Support
 
-- **Images & Photos:** To view images directly in your terminal, use a terminal emulator that supports advanced graphics protocols (like **Kitty**, **WezTerm**, or **iTerm2**).
+- **Images & Photos:** To view images directly in your terminal, use a terminal emulator that supports advanced graphics protocols (like **Kitty**, **WezTerm**, or **iTerm2**). //not working
 - **Videos:** Video playback inside the terminal is possible using ASCII/block character rendering via **Chafa**. Make sure `chafa` is installed on your system.
 *(Note: Full media integration is currently in experimental development.)*
 
