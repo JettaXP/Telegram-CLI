@@ -104,9 +104,15 @@ Component ChatView::component() {
         state_.chatview_view_size = view_size;
 
         int max_offset = std::max(0, total - view_size);
-        state_.scroll_offset = std::clamp(state_.scroll_offset, 0, max_offset);
+        if (state_.scroll_offset <= 0) {
+            state_.scroll_offset = 0;
+        } else {
+            state_.scroll_offset = std::clamp(state_.scroll_offset, 1, max_offset);
+        }
 
-        int start = std::max(0, total - view_size - state_.scroll_offset);
+        int start = (state_.scroll_offset == 0)
+            ? max_offset
+            : std::max(0, total - view_size - state_.scroll_offset);
         int end = std::min(total, start + view_size);
 
         auto header = hbox({
@@ -154,6 +160,9 @@ Component ChatView::component() {
             }
 
             if (event.mouse().button == Mouse::WheelUp) {
+                if (state_.scroll_offset == 0) {
+                    state_.scroll_offset = 1;
+                }
                 state_.scroll_offset = std::min(state_.scroll_offset + 2, max_offset);
                 return true;
             }
@@ -170,6 +179,9 @@ Component ChatView::component() {
         }
 
         if (event == Event::PageUp) {
+            if (state_.scroll_offset == 0) {
+                state_.scroll_offset = 1;
+            }
             state_.scroll_offset = std::min(state_.scroll_offset + std::max(1, view_size / 4), max_offset);
             return true;
         }

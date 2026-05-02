@@ -88,7 +88,7 @@ void App::on_chat_selected(int64_t chat_id) {
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.messages.clear();
-            state_.scroll_offset = 0;
+            state_.scroll_offset = 1;
             state_.chatview_view_size = 1;
             state_.oldest_loaded_message_id = 0;
             state_.newest_loaded_message_id = 0;
@@ -114,7 +114,7 @@ void App::on_chat_selected(int64_t chat_id) {
                 state_.history_exhausted = true;
             }
             state_.history_loading = false;
-            state_.scroll_offset = 0;
+            state_.scroll_offset = 1;
             can_send = state_.selected_chat_details.can_send_messages;
         }
 
@@ -246,7 +246,7 @@ void App::run() {
         {
             std::lock_guard<std::mutex> lock(state_.mtx);
             state_.messages.clear();
-            state_.scroll_offset = 0;
+            state_.scroll_offset = 1;
             state_.chatview_view_size = 1;
             state_.oldest_loaded_message_id = 0;
             state_.newest_loaded_message_id = 0;
